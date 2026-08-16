@@ -1,8 +1,9 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
 
 dotenv.config();
 
-const requiredInProduction = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_NAME'];
+const requiredInProduction = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_NAME', 'CLIENT_ORIGIN'];
 
 function getNumber(name, fallback) {
   const value = process.env[name];
@@ -36,6 +37,8 @@ export const config = {
   port: getNumber('PORT', 4000),
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'development-only-secret',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+  uploadDirectory: path.resolve(process.env.UPLOAD_DIRECTORY || 'uploads'),
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: getNumber('DB_PORT', 3306),

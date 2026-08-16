@@ -22,3 +22,15 @@ server.listen(config.port, () => {
     environment: config.nodeEnv,
   });
 });
+
+function shutdown(signal) {
+  logger.info('server_shutdown_started', { signal });
+  server.close(() => {
+    logger.info('server_shutdown_complete', { signal });
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));

@@ -1,17 +1,3 @@
-export function LandingPage() {
-  return (
-    <section className="page-section">
-      <div className="page-kicker">Esports tournament operations</div>
-      <h1>EVOQ</h1>
-      <p>
-        A production tournament management platform for organizers, teams, and
-        players. The application foundation is ready for the documented phase
-        buildout.
-      </p>
-      <div className="status-panel" role="status">
-        Phase 1 foundation active. Product workflows will use live backend data
-        as each approved phase is implemented.
-      </div>
-    </section>
-  );
-}
+import { FeatureSection, FAQSection, FinalCTA, FlowSection, HeroSection, HowSection, OrganizerSection, PlayerSection, RealtimeSection, ValueSection } from '../../components/landing/LandingSections.jsx';
+import { LandingFooter } from '../../components/landing/LandingFooter.jsx';
+export function LandingPage() { return <><main className="landing-main"><HeroSection /><ValueSection /><FlowSection /><HowSection /><PlayerSection /><OrganizerSection /><RealtimeSection /><FeatureSection /><FAQSection /><FinalCTA /></main><LandingFooter /></>; }

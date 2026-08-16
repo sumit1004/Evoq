@@ -19,4 +19,33 @@ describe('API foundation', () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe('ROUTE_NOT_FOUND');
   });
+
+  it('rejects protected player profile access without a token', async () => {
+    const response = await request(createApp()).get('/api/players/me');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
+  });
+
+  it('returns structured validation errors before identity persistence', async () => {
+    const response = await request(createApp())
+      .post('/api/auth/signup')
+      .send({ name: 'A', email: 'invalid', password: 'short', role: 'ADMIN' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(response.body.error.details.body).toEqual(expect.objectContaining({
+      email: expect.any(String),
+      password: expect.any(String),
+      role: expect.any(String),
+    }));
+  });
+
+  it('requires player authentication for team access', async () => {
+    const response = await request(createApp()).get('/api/teams');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
+  });
+
 });

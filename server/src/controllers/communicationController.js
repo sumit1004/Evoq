@@ -1,0 +1,11 @@
+import { asyncHandler } from '../utils/asyncHandler.js';
+import * as service from '../services/communicationService.js';
+import { emitRealtime, realtimeEvents, realtimeRooms } from '../utils/realtimeHub.js';
+export const listAnnouncements = asyncHandler(async (req, res) => res.json({ announcements: await service.listAnnouncements(Number(req.params.tournamentId), req.user.id) }));
+export const createAnnouncement = asyncHandler(async (req, res) => { const result = await service.createAnnouncement(Number(req.params.tournamentId), req.body.message, req.user.id); emitRealtime(realtimeRooms.tournament(req.params.tournamentId), realtimeEvents.announcement, result.announcement); result.notifications.forEach((notification) => emitRealtime(realtimeRooms.user(notification.userId), realtimeEvents.notification, notification)); res.status(201).json({ announcement: result.announcement }); });
+export const deleteAnnouncement = asyncHandler(async (req, res) => { const announcement = await service.deleteAnnouncement(Number(req.params.announcementId), req.user.id); emitRealtime(`tournament_${announcement.tournamentId}`, 'announcement_deleted', { id: announcement.id }); res.status(204).send(); });
+export const listNotifications = asyncHandler(async (req, res) => res.json({ notifications: await service.listNotifications(req.user.id) }));
+export const markNotificationRead = asyncHandler(async (req, res) => { await service.markNotificationRead(Number(req.params.notificationId), req.user.id); res.status(204).send(); });
+export const markAllNotificationsRead = asyncHandler(async (req, res) => { await service.markAllNotificationsRead(req.user.id); res.status(204).send(); });
+export const listChat = asyncHandler(async (req, res) => res.json({ messages: await service.listChat(Number(req.params.groupId), req.user.id) }));
+export const createChat = asyncHandler(async (req, res) => { const message = await service.sendChat(Number(req.params.groupId), req.body.message, req.user.id); emitRealtime(`group_${req.params.groupId}`, 'chat_message', message); res.status(201).json({ message }); });

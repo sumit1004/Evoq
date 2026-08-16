@@ -11,8 +11,3 @@ export const pool = mysql.createPool({
   connectionLimit: config.db.connectionLimit,
   namedPlaceholders: true,
 });
-
-export async function checkDatabaseConnection() {
-  const [rows] = await pool.query('SELECT 1 AS ok');
-  return rows[0]?.ok === 1;
-}

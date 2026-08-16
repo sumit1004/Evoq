@@ -1,0 +1,12 @@
+CREATE TABLE archive_cleanup_jobs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tournament_id BIGINT UNSIGNED NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  status ENUM('PENDING','COMPLETED','FAILED') NOT NULL DEFAULT 'PENDING',
+  attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  last_error TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_cleanup_tournament_status (tournament_id, status),
+  CONSTRAINT fk_cleanup_tournament FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE CASCADE
+);

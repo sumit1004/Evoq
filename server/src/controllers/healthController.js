@@ -1,5 +1,5 @@
-import { checkDatabaseConnection } from '../config/database.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getReadinessStatus } from '../services/healthService.js';
 
 export function getHealth(_req, res) {
   res.status(200).json({
@@ -9,12 +9,7 @@ export function getHealth(_req, res) {
 }
 
 export const getReadiness = asyncHandler(async (_req, res) => {
-  const database = await checkDatabaseConnection();
+  const result = await getReadinessStatus();
 
-  res.status(database ? 200 : 503).json({
-    status: database ? 'ready' : 'degraded',
-    checks: {
-      database,
-    },
-  });
+  res.status(result.status === 'ready' ? 200 : 503).json(result);
 });

@@ -1,0 +1,14 @@
+import { asyncHandler } from '../utils/asyncHandler.js';
+import * as service from '../services/resultsService.js';
+import { emitRealtime, realtimeEvents, realtimeRooms } from '../utils/realtimeHub.js';
+export const listMatchResults = asyncHandler(async (req, res) => res.json({ results: await service.listMatchResults(Number(req.params.matchId), req.user.id) }));
+export const createMatchResult = asyncHandler(async (req, res) => { const result = await service.createMatchResult(Number(req.params.matchId), req.body, req.user.id, req.file); const context = await service.getMatchContext(Number(req.params.matchId)); emitRealtime(realtimeRooms.tournament(context.tournament_id), realtimeEvents.resultUpload, result); res.status(201).json({ result }); });
+export const tournamentResults = asyncHandler(async (req, res) => res.json({ results: await service.getTournamentResults(Number(req.params.tournamentId), req.user.id) }));
+export const tournamentLeaderboard = asyncHandler(async (req, res) => res.json({ leaderboard: await service.getTournamentLeaderboard(Number(req.params.tournamentId), req.user.id) }));
+export const matchLeaderboard = asyncHandler(async (req, res) => res.json({ leaderboard: await service.getMatchLeaderboard(Number(req.params.matchId), req.user.id) }));
+export const recalculateLeaderboard = asyncHandler(async (req, res) => { const leaderboard = await service.recalculateMatchLeaderboard(Number(req.params.matchId), req.user.id); const context = await service.getMatchContext(Number(req.params.matchId)); emitRealtime(realtimeRooms.tournament(context.tournament_id), realtimeEvents.leaderboardUpdate, { matchId: Number(req.params.matchId), groupId: context.group_id, roundId: context.round_id, leaderboard }); res.json({ leaderboard }); });
+export const groupLeaderboard = asyncHandler(async (req, res) => res.json({ leaderboard: await service.getGroupLeaderboard(Number(req.params.groupId), req.user.id) }));
+export const roundLeaderboard = asyncHandler(async (req, res) => res.json({ leaderboard: await service.getRoundLeaderboard(Number(req.params.roundId), req.user.id) }));
+export const qualifications = asyncHandler(async (req, res) => res.json({ qualifications: await service.getQualifications(Number(req.params.roundId), req.user.id) }));
+export const selectQualification = asyncHandler(async (req, res) => res.status(201).json({ qualifications: await service.selectQualification(Number(req.params.roundId), req.body, req.user.id) }));
+export const removeQualification = asyncHandler(async (req, res) => res.json({ qualifications: await service.removeQualification(Number(req.params.roundId), Number(req.params.teamId), req.user.id) }));

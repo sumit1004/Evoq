@@ -1,0 +1,19 @@
+-- EVOQ Phase 02 rollback. Drop children before parents.
+DROP TABLE IF EXISTS tournament_archives;
+DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS announcements;
+DROP TABLE IF EXISTS qualifications;
+DROP TABLE IF EXISTS leaderboard_entries;
+DROP TABLE IF EXISTS match_results;
+DROP TABLE IF EXISTS matches;
+DROP TABLE IF EXISTS group_teams;
+DROP TABLE IF EXISTS `groups`;
+DROP TABLE IF EXISTS rounds;
+DROP TABLE IF EXISTS registrations;
+DROP TABLE IF EXISTS tournament_prizes;
+DROP TABLE IF EXISTS tournaments;
+DROP TABLE IF EXISTS team_members;
+DROP TABLE IF EXISTS teams;
+DROP TABLE IF EXISTS player_profiles;
+DROP TABLE IF EXISTS users;
