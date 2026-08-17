@@ -4,7 +4,7 @@ All endpoints are under /api.
 
 ## Authentication
 
-POST /auth/signup POST /auth/login POST /auth/logout (if server-side
+POST /auth/signup POST /auth/login GET /auth/me POST /auth/logout (if server-side
 session invalidation is implemented) GET /players/me PATCH /players/me
 
 ## Teams

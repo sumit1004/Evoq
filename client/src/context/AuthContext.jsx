@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { apiClient, normalizeApiError } from '../services/apiClient.js';
 
 const AuthContext = createContext(null);
@@ -10,6 +10,23 @@ function readIdentity() {
 
 export function AuthProvider({ children }) {
   const [identity, setIdentity] = useState(readIdentity);
+  const [loading, setLoading] = useState(() => Boolean(window.localStorage.getItem('evoq.accessToken')));
+
+  useEffect(() => {
+    const token = window.localStorage.getItem('evoq.accessToken');
+    if (!token) { setLoading(false); return undefined; }
+    let cancelled = false;
+    apiClient.get('/auth/me')
+      .then(({ data }) => { if (!cancelled) setIdentity(data.identity); })
+      .catch(() => {
+        if (cancelled) return;
+        window.localStorage.removeItem('evoq.accessToken');
+        window.localStorage.removeItem(storageKey);
+        setIdentity(null);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   function persist(result) {
     window.localStorage.setItem('evoq.accessToken', result.token);
@@ -33,7 +50,7 @@ export function AuthProvider({ children }) {
     setIdentity(null);
   }, []);
 
-  const value = useMemo(() => ({ identity, login, signup, logout }), [identity, login, signup, logout]);
+  const value = useMemo(() => ({ identity, loading, login, signup, logout }), [identity, loading, login, signup, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

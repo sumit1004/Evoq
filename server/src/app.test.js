@@ -48,4 +48,11 @@ describe('API foundation', () => {
     expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
   });
 
+  it('requires player authentication for the dashboard endpoint', async () => {
+    const response = await request(createApp()).get('/api/players/dashboard');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
+  });
+
 });

@@ -1,11 +1,13 @@
 import { Route, Routes } from 'react-router-dom';
 import { PublicLayout } from '../layouts/PublicLayout.jsx';
+import { AuthenticatedLayout } from '../layouts/AuthenticatedLayout.jsx';
 import { LandingPage } from '../pages/public/LandingPage.jsx';
 import { LoginPage } from '../pages/public/LoginPage.jsx';
 import { SignupPage } from '../pages/public/SignupPage.jsx';
 import { NotFoundPage } from '../pages/public/NotFoundPage.jsx';
 import { AuthProvider } from '../context/AuthContext.jsx';
 import { PlayerOverviewPage, PlayerWorkspacePage } from '../pages/player/PlayerWorkspacePage.jsx';
+import { PlayerDashboardPage } from '../pages/player/PlayerDashboardPage.jsx';
 import { TeamsPage } from '../pages/player/TeamsPage.jsx';
 import { TournamentsPage } from '../pages/public/TournamentsPage.jsx';
 import { TournamentDetailsPage } from '../pages/public/TournamentDetailsPage.jsx';
@@ -26,6 +28,7 @@ import { NotificationsPage } from '../pages/public/NotificationsPage.jsx';
 import { OrganizerRegistrationsPage } from '../pages/organizer/OrganizerRegistrationsPage.jsx';
 import { PlayerGroupPage } from '../pages/player/PlayerGroupPage.jsx';
 import { TournamentHubPage } from '../pages/player/TournamentHubPage.jsx';
+import { MyTournamentsPage } from '../pages/player/MyTournamentsPage.jsx';
 
 export function App() {
   return (
@@ -41,12 +44,13 @@ export function App() {
         </Route>
         <Route path="/player" element={<PlayerWorkspacePage />}>
           <Route index element={<PlayerOverviewPage />} />
+          <Route path="dashboard" element={<PlayerDashboardPage />} />
           <Route path="teams" element={<TeamsPage />} />
+          <Route path="my-tournaments" element={<MyTournamentsPage />} />
           <Route path="groups/:groupId" element={<PlayerGroupPage />} />
           <Route path="communications/:tournamentId" element={<TournamentHubPage />} />
           <Route path="groups/:groupId/chat" element={<GroupChatPage />} />
         </Route>
-        <Route path="/player/*" element={<PlayerWorkspacePage />} />
         <Route path="/organizer" element={<OrganizerWorkspacePage />}>
           <Route index element={<OrganizerOverviewPage />} />
           <Route path="tournaments" element={<OrganizerTournamentsPage />} />
@@ -62,11 +66,11 @@ export function App() {
           <Route path="tournaments/:tournamentId/groups/:groupId/chat" element={<GroupChatPage />} />
         </Route>
         <Route path="/organizer/*" element={<OrganizerWorkspacePage />} />
-        <Route path="history" element={<PublicLayout />}>
+        <Route path="history" element={<AuthenticatedLayout />}>
           <Route index element={<HistoryPage />} />
           <Route path=":historyId" element={<HistoryDetailPage />} />
         </Route>
-        <Route path="notifications" element={<PublicLayout />}><Route index element={<NotificationsPage />} /></Route>
+        <Route path="notifications" element={<AuthenticatedLayout />}><Route index element={<NotificationsPage />} /></Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       </SocketProvider>

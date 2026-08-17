@@ -19,8 +19,8 @@ export function TournamentDetailsPage() {
       setTournament(result.tournament);
       if (identity?.role === 'PLAYER') {
         const [teamResult, registrationResult] = await Promise.all([fetchTeams(), fetchRegistrations(tournamentId)]);
-        setTeams(teamResult.teams);
-        setRegistrations(registrationResult.registrations);
+        setTeams(Array.isArray(teamResult) ? teamResult : teamResult?.teams || []);
+        setRegistrations(Array.isArray(registrationResult?.registrations) ? registrationResult.registrations : []);
       }
       setState((current) => ({ ...current, loading: false }));
     } catch (error) { setState({ loading: false, submitting: false, error: error.message, notice: '' }); }
@@ -35,12 +35,12 @@ export function TournamentDetailsPage() {
       setForm({ teamId: '', transactionId: '', paymentScreenshot: null });
       setState((current) => ({ ...current, submitting: false, notice: 'Registration submitted for organizer review.' }));
       const result = await fetchRegistrations(tournamentId);
-      setRegistrations(result.registrations);
+      setRegistrations(Array.isArray(result?.registrations) ? result.registrations : []);
     } catch (error) { setState((current) => ({ ...current, submitting: false, error: error.message })); }
   }
 
   if (state.loading) return <section className="page-section"><p className="status-panel">Loading tournament...</p></section>;
-  if (state.error && !tournament) return <section className="page-section"><div className="form-alert" role="alert">{state.error}</div></section>;
+  if (!tournament) return <section className="page-section"><div className="form-alert" role="alert">{state.error || 'Tournament details are unavailable.'}</div></section>;
   return (
     <section className="page-section workspace-page">
       <Link className="text-link" to="/tournaments">Back to tournaments</Link>
