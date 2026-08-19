@@ -38,7 +38,7 @@ function registrationWhere(tournamentId, { status, search } = {}) {
 export async function listRegistrations(tournamentId, options = {}) {
   const { where, values } = registrationWhere(tournamentId, options);
   if (options.pagination) {
-    const [ids] = await pool.query(`SELECT DISTINCT r.id FROM registrations r INNER JOIN teams ON teams.id = r.team_id INNER JOIN team_members ON team_members.team_id = teams.id INNER JOIN users ON users.id = team_members.user_id WHERE ${where} ORDER BY r.created_at DESC, r.id DESC LIMIT ? OFFSET ?`, [...values, options.pagination.limit, options.pagination.offset]);
+    const [ids] = await pool.query(`SELECT DISTINCT r.id, r.created_at FROM registrations r INNER JOIN teams ON teams.id = r.team_id INNER JOIN team_members ON team_members.team_id = teams.id INNER JOIN users ON users.id = team_members.user_id WHERE ${where} ORDER BY r.created_at DESC, r.id DESC LIMIT ? OFFSET ?`, [...values, options.pagination.limit, options.pagination.offset]);
     if (!ids.length) return [];
     const placeholders = ids.map(() => '?').join(',');
     const [rows] = await pool.query(`${select}

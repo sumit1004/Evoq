@@ -8,6 +8,7 @@ import { competitionRouter } from './competitionRoutes.js';
 import { resultsRouter } from './resultsRoutes.js';
 import { archiveRouter } from './archiveRoutes.js';
 import { communicationRouter } from './communicationRoutes.js';
+import { organizerRouter } from './organizerRoutes.js';
 
 export const apiRouter = Router();
 
@@ -21,3 +22,4 @@ apiRouter.use('/', competitionRouter);
 apiRouter.use('/', resultsRouter);
 apiRouter.use('/', archiveRouter);
 apiRouter.use('/', communicationRouter);
+apiRouter.use('/organizer', organizerRouter);

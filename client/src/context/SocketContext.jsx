@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext.jsx';
 
 const SocketContext = createContext(null);
-const socketOrigin = import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://localhost:4000' : window.location.origin);
+const socketOrigin = import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://127.0.0.1:4000' : window.location.origin);
 
 export function SocketProvider({ children }) {
   const { identity } = useAuth(); const socketRef = useRef(null); const subscriptions = useRef({ tournaments: new Set(), groups: new Set() }); const [connected, setConnected] = useState(false);

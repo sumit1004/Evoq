@@ -12,6 +12,3 @@ export function OrganizerWorkspacePage() {
   return <WorkspaceShell label="Organizer workspace" items={getOrganizerNavigation({ tournamentId, roundId, matchId, groupId })}><Outlet /></WorkspaceShell>;
 }
 
-export function OrganizerOverviewPage() {
-  return <section className="page-section workspace-page"><div className="page-kicker">Operations</div><h1>Organizer console</h1><p>Create tournaments, manage registration windows, and review participant submissions.</p><Link className="button primary-button" to="/organizer/tournaments">Manage tournaments</Link></section>;
-}
