@@ -32,6 +32,9 @@ function groupTeamRows(rows) {
         email: row.member_email,
         uniquePlayerId: row.unique_player_id,
         role: row.member_role || 'MEMBER',
+        mobile: row.mobile,
+        inGameName: row.in_game_name,
+        gameUid: row.game_uid,
       });
     }
   }

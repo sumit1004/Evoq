@@ -45,6 +45,38 @@ export function TournamentDetailsPage() {
 
   const isOnlineUnconfigured = tournament?.entryType === 'PAID' && tournament?.paymentMethod === 'ONLINE';
 
+  const selectedTeam = teams.find(t => String(t.id) === String(form.teamId));
+  const preflightMembers = selectedTeam ? selectedTeam.members.map(member => {
+    const checks = [];
+    let isOk = true;
+    
+    // Check mobile
+    if (!member.mobile) {
+      checks.push('Mobile missing');
+      isOk = false;
+    }
+    
+    // Check Free Fire details if game is Free Fire
+    if (tournament?.game === 'Free Fire') {
+      if (!member.inGameName) {
+        checks.push('IGN missing');
+        isOk = false;
+      }
+      if (!member.gameUid) {
+        checks.push('Free Fire UID missing');
+        isOk = false;
+      }
+    }
+    
+    return {
+      ...member,
+      isOk,
+      checks
+    };
+  }) : [];
+
+  const isTeamRegistrationBlocked = preflightMembers.some(m => !m.isOk);
+
   return (
     <DirectoryLayoutWrapper>
       {state.loading && <p className="status-panel">Loading tournament...</p>}
@@ -107,6 +139,37 @@ export function TournamentDetailsPage() {
                 <option value="">Choose a team</option>
                 {teams.map((team) => <option key={team.id} value={team.id}>{team.name} ({team.members.length} players)</option>)}
               </select>
+
+              {selectedTeam && (
+                <div className="preflight-summary-panel" style={{ padding: '15px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', margin: '15px 0', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <h3 style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#fff' }}>Team Eligibility Precheck</h3>
+                  <p style={{ fontSize: '13px', margin: '0 0 10px 0', color: '#91a0b3' }}>
+                    All team members must have a complete profile before registering.
+                  </p>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {preflightMembers.map(member => (
+                      <li key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '14px' }}>
+                        <span style={{ color: member.isOk ? '#fff' : '#ff6b6b', fontWeight: '500' }}>
+                          {member.isOk ? '✓' : '⚠'} {member.name}
+                        </span>
+                        {!member.isOk && (
+                          <span style={{ fontSize: '12px', color: '#ff6b6b', background: 'rgba(231,76,60,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                            {member.checks.join(', ')}
+                          </span>
+                        )}
+                        {member.isOk && (
+                          <span style={{ fontSize: '12px', color: '#2ecc71' }}>Ready</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {isTeamRegistrationBlocked && (
+                    <p style={{ color: '#ff6b6b', fontSize: '13px', margin: '10px 0 0 0', fontWeight: 'bold' }}>
+                      ⚠ Registration is blocked. Team members must complete their profiles under settings before registering.
+                    </p>
+                  )}
+                </div>
+              )}
               
               {tournament.entryType === 'PAID' && (
                 <div className="payment-instructions-panel" style={{ padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', margin: '15px 0', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -149,8 +212,8 @@ export function TournamentDetailsPage() {
                 </>
               )}
 
-              <button className="button primary-button" type="submit" disabled={state.submitting || isOnlineUnconfigured}>
-                {state.submitting ? 'Submitting...' : isOnlineUnconfigured ? 'Online Payment Unavailable' : 'Submit registration'}
+              <button className="button primary-button" type="submit" disabled={state.submitting || isOnlineUnconfigured || isTeamRegistrationBlocked}>
+                {state.submitting ? 'Submitting...' : isOnlineUnconfigured ? 'Online Payment Unavailable' : isTeamRegistrationBlocked ? 'Incomplete Member Profiles' : 'Submit registration'}
               </button>
             </form>
           )}

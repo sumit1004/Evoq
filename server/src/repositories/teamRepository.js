@@ -20,7 +20,8 @@ export async function listTeamsForUser(userId) {
   const [rows] = await pool.query(
     `SELECT t.id, t.name, t.owner_id, owner.name AS owner_name,
             tm.role AS member_role, member.id AS member_id, member.name AS member_name,
-            member.email AS member_email, pp.unique_player_id
+            member.email AS member_email, pp.unique_player_id,
+            pp.mobile, pp.in_game_name, pp.game_uid
      FROM team_members tm
      INNER JOIN teams t ON t.id = tm.team_id
      INNER JOIN users owner ON owner.id = t.owner_id
@@ -39,7 +40,7 @@ export async function findTeamForUser(teamId, userId) {
     `SELECT t.id, t.name, t.owner_id, owner.name AS owner_name,
             member.id AS member_id, member.name AS member_name,
             member.email AS member_email, tm.role AS member_role,
-            pp.unique_player_id
+            pp.unique_player_id, pp.mobile, pp.in_game_name, pp.game_uid
      FROM teams t
      INNER JOIN users owner ON owner.id = t.owner_id
      INNER JOIN team_members access_member ON access_member.team_id = t.id AND access_member.user_id = ?

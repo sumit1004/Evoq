@@ -777,18 +777,26 @@ export function OrganizerRegistrationsPage() {
           <div style={{ marginBottom: '20px' }}>
             <h4 style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px', color: '#91a0b3' }}>Team members ({selectedReg.members.length})</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {selectedReg.members.map((member, i) => (
-                <li key={member.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <strong>{member.name}</strong> {i === 0 && <span style={{ fontSize: '11px', color: '#f6c453', background: 'rgba(246,196,83,0.1)', padding: '2px 4px', borderRadius: '3px', marginLeft: '5px' }}>Leader</span>}
-                  <div style={{ fontSize: '13px', color: '#91a0b3', marginTop: '4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
-                    <span>UID: {member.uniquePlayerId}</span>
-                    <span>Email: {member.email || 'N/A'}</span>
-                    <span>IGN: {member.ign || 'N/A'}</span>
-                    <span>Game ID: {member.uid || 'N/A'}</span>
-                    <span>Mobile: {member.mobile || 'N/A'}</span>
-                  </div>
-                </li>
-              ))}
+              {selectedReg.members.map((member, i) => {
+                const getGameLabels = (gameName) => {
+                  if (gameName === 'Free Fire') return { ign: 'IGN', uid: 'Free Fire UID' };
+                  if (gameName === 'Valorant') return { ign: 'Valorant IGN', uid: 'Riot ID' };
+                  return { ign: 'In-Game Name', uid: 'Game UID' };
+                };
+                const labels = getGameLabels(tournament?.game);
+                return (
+                  <li key={member.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <strong>{member.name}</strong> {i === 0 && <span style={{ fontSize: '11px', color: '#f6c453', background: 'rgba(246,196,83,0.1)', padding: '2px 4px', borderRadius: '3px', marginLeft: '5px' }}>Leader</span>}
+                    <div style={{ fontSize: '13px', color: '#91a0b3', marginTop: '4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                      <span>UID: {member.uniquePlayerId}</span>
+                      <span>Email: {member.email || 'N/A'}</span>
+                      <span>{labels.ign}: {member.ign || 'N/A'}</span>
+                      <span>{labels.uid}: {member.uid || 'N/A'}</span>
+                      <span>Mobile: {member.mobile || 'N/A'}</span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 

@@ -70,9 +70,46 @@ export async function listTournamentRegistrations(tournamentId, organizerId) {
   }
   const grouped = new Map();
   for (const row of await listRegistrations(tournamentId)) {
-    grouped.set(row.id, [...(grouped.get(row.id) || []), row]);
+    if (!grouped.has(row.id)) {
+      grouped.set(row.id, {
+        id: row.id,
+        tournamentId: row.tournament_id,
+        tournamentName: row.tournament_name,
+        teamId: row.team_id,
+        teamName: row.team_name,
+        status: row.status,
+        entryType: row.entry_type,
+        submittedAt: row.submitted_at,
+        verifiedAt: row.verified_at,
+        verifiedBy: row.verified_by,
+        rejectionReason: row.rejection_reason,
+        rejectedAt: row.rejected_at,
+        rejectedBy: row.rejected_by,
+        organizerId: row.organizer_id,
+        tournamentStatus: row.tournament_status,
+        paymentStatus: row.payment_status || 'NOT_REQUIRED',
+        paymentAmount: row.payment_amount,
+        transactionId: row.transaction_reference,
+        paymentScreenshotPath: row.proof_url,
+        paymentProvider: row.payment_provider,
+        paymentOrderId: row.provider_order_id,
+        paymentId: row.provider_payment_id,
+        paymentCurrency: row.payment_currency,
+        paymentCapturedAt: row.payment_captured_at,
+        members: [],
+      });
+    }
+    grouped.get(row.id).members.push({
+      id: row.member_id,
+      name: row.member_name,
+      email: row.member_email,
+      uniquePlayerId: row.unique_player_id,
+      mobile: row.member_mobile,
+      ign: row.member_ign,
+      uid: row.member_uid,
+    });
   }
-  return [...grouped.values()].map(groupRows);
+  return Array.from(grouped.values());
 }
 
 export async function listTournamentRegistrationsPage(tournamentId, organizerId, options = {}) {
@@ -117,7 +154,7 @@ function csvCell(value) {
 
 export async function exportTournamentRegistrations(tournamentId, organizerId) {
   const registrations = await listTournamentRegistrations(tournamentId, organizerId);
-  const header = ['registration_id', 'status', 'team_name', 'member_name', 'member_email', 'unique_player_id', 'transaction_id', 'submitted_at', 'rejection_reason'];
+  const header = ['registration_id', 'status', 'team_name', 'member_name', 'member_email', 'unique_player_id', 'member_mobile', 'in_game_name', 'game_uid', 'game', 'transaction_id', 'submitted_at', 'rejection_reason'];
   const lines = [header.map(csvCell).join(',')];
   for (const registration of registrations) {
     for (const member of registration.members) {
@@ -129,6 +166,10 @@ export async function exportTournamentRegistrations(tournamentId, organizerId) {
           member.name,
           member.email,
           member.uniquePlayerId,
+          member.mobile,
+          member.ign,
+          member.uid,
+          registration.tournamentGame || 'Free Fire',
           registration.transactionId,
           registration.submittedAt,
           registration.rejectionReason,
@@ -152,13 +193,19 @@ export async function buildTournamentRegistrationWorkbook(tournamentId, organize
   const sheet = workbook.addWorksheet('Registrations');
   sheet.columns = [
     { header: 'Tournament Name', key: 'tournamentName', width: 24 },
+    { header: 'Tournament Game', key: 'tournamentGame', width: 18 },
     { header: 'Tournament Date', key: 'tournamentDate', width: 20 },
-    { header: 'Registration Status', key: 'status', width: 18 },
     { header: 'Registration Date', key: 'submittedAt', width: 22 },
+    { header: 'Registration Status', key: 'status', width: 18 },
     { header: 'Team Name', key: 'teamName', width: 24 },
+    { header: 'Team ID', key: 'teamId', width: 14 },
     { header: 'Member Name', key: 'memberName', width: 24 },
     { header: 'Member Unique ID', key: 'uniquePlayerId', width: 20 },
     { header: 'Member Email', key: 'memberEmail', width: 30 },
+    { header: 'Member Mobile', key: 'memberMobile', width: 18 },
+    { header: 'In-Game Name', key: 'inGameName', width: 20 },
+    { header: 'Game UID', key: 'gameUid', width: 20 },
+    { header: 'Game', key: 'game', width: 18 },
     { header: 'Entry Type', key: 'entryType', width: 14 },
     { header: 'Entry Fee', key: 'entryFee', width: 14 },
     { header: 'Transaction ID', key: 'transactionId', width: 24 },
@@ -168,13 +215,19 @@ export async function buildTournamentRegistrationWorkbook(tournamentId, organize
     for (const member of registration.members) {
       sheet.addRow({
         tournamentName: registration.tournamentName,
+        tournamentGame: tournament.game,
         tournamentDate: tournament.tournament_date,
-        status: registration.status,
         submittedAt: registration.submittedAt,
+        status: registration.status,
         teamName: registration.teamName,
+        teamId: registration.teamId,
         memberName: member.name,
         uniquePlayerId: member.uniquePlayerId,
         memberEmail: member.email,
+        memberMobile: member.mobile,
+        inGameName: member.ign,
+        gameUid: member.uid,
+        game: tournament.game,
         entryType: registration.entryType,
         entryFee: tournament.entry_fee,
         transactionId: registration.transactionId,
@@ -229,6 +282,27 @@ export async function createPlayerRegistration(tournamentId, input, userId, uplo
       throw errorResponses.validation({ teamId: 'Team size does not match this tournament' });
     }
 
+    // Retrieve members and their profiles to perform data checks
+    const members = await listTeamMembersWithProfiles(input.teamId, connection);
+
+    // Validate common and game-specific required fields
+    for (const member of members) {
+      if (!member.player_name || !member.email || !member.unique_player_id) {
+        throw errorResponses.validation({ teamId: 'Player account profile is incomplete' });
+      }
+      if (!member.mobile) {
+        throw errorResponses.validation({ teamId: `Player ${member.player_name}'s Mobile Number is missing. Ask the player to complete their profile before registering the team.` });
+      }
+      if (tournament.game === 'Free Fire') {
+        if (!member.in_game_name) {
+          throw errorResponses.validation({ teamId: `Player ${member.player_name}'s In-Game Name is missing. Ask the player to complete their profile before registering the team.` });
+        }
+        if (!member.game_uid) {
+          throw errorResponses.validation({ teamId: `Player ${member.player_name}'s Free Fire UID is missing. Ask the player to complete their profile before registering the team.` });
+        }
+      }
+    }
+
     // Capacity Check
     const activeCount = await getTournamentRegistrationCountForUpdate(tournamentId, connection);
     if (activeCount >= tournament.max_teams) {
@@ -250,6 +324,9 @@ export async function createPlayerRegistration(tournamentId, input, userId, uplo
 
     // Insert Registration
     const id = await insertRegistration({ tournamentId, teamId: input.teamId }, connection);
+
+    // Create Member Snapshots
+    await insertRegistrationMemberSnapshots(id, members, connection);
 
     // Create Payment Record (Server-side entry fee)
     await createPayment(id, tournament, tournament.organizer_id, input, uploadedFile ? path.basename(uploadedFile.path) : null, connection);

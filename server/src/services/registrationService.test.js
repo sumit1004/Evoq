@@ -10,6 +10,8 @@ vi.mock('../repositories/registrationRepository.js', () => ({
   listPlayerRegistrations: vi.fn(),
   listRegistrations: vi.fn(),
   reviewRegistration: vi.fn(),
+  listTeamMembersWithProfiles: vi.fn(),
+  insertRegistrationMemberSnapshots: vi.fn(),
 }));
 vi.mock('../repositories/tournamentRepository.js', () => ({ findTournament: vi.fn(), findTournamentForUpdate: vi.fn() }));
 
@@ -20,8 +22,13 @@ const { createPlayerRegistration, listTournamentRegistrationsPage, reviewTournam
 describe('registration service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tournamentRepository.findTournamentForUpdate.mockResolvedValue({ id: 5, organizer_id: 4, status: 'REGISTRATION_OPEN', max_teams: 10, entry_type: 'PAID', entry_fee: 100, payment_method: 'MANUAL_UPI' });
+    tournamentRepository.findTournamentForUpdate.mockResolvedValue({ id: 5, organizer_id: 4, status: 'REGISTRATION_OPEN', max_teams: 10, entry_type: 'PAID', entry_fee: 100, payment_method: 'MANUAL_UPI', game: 'Free Fire' });
     repository.getTournamentRegistrationCountForUpdate = vi.fn().mockResolvedValue(0);
+    repository.listTeamMembersWithProfiles.mockResolvedValue([
+      { user_id: 4, player_name: 'Owner', email: 'owner@example.com', unique_player_id: 'EVQ-1', mobile: '9999999999', in_game_name: 'OwnerIGN', game_uid: 'OwnerUID' },
+      { user_id: 5, player_name: 'Player2', email: 'player2@example.com', unique_player_id: 'EVQ-2', mobile: '8888888888', in_game_name: 'Player2IGN', game_uid: 'Player2UID' }
+    ]);
+    repository.insertRegistrationMemberSnapshots.mockResolvedValue(null);
   });
 
   it('requires the team owner, open lifecycle, exact team size, and paid evidence', async () => {
