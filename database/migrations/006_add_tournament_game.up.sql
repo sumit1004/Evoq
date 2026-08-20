@@ -1,0 +1,1 @@
+ALTER TABLE tournaments ADD COLUMN game VARCHAR(120) NOT NULL DEFAULT 'Free Fire';

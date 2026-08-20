@@ -2,7 +2,7 @@ export function getPlayerNavigation() {
   return [
     { label: 'Overview', to: '/player/dashboard', active: (path) => path === '/player' || path === '/player/dashboard' },
     { label: 'Teams', to: '/player/teams', active: (path) => path.startsWith('/player/teams') },
-    { label: 'Tournaments', to: '/player/my-tournaments', active: (path) => path === '/player/my-tournaments' || path.startsWith('/player/communications') || path.startsWith('/player/groups') },
+    { label: 'Tournaments', to: '/tournaments', active: (path) => path === '/tournaments' || path.startsWith('/tournaments/') || path === '/player/my-tournaments' || path.startsWith('/player/communications') || path.startsWith('/player/groups') },
     { label: 'Notifications', notification: true },
     { label: 'History', to: '/history', active: (path) => path.startsWith('/history') },
   ];
@@ -11,7 +11,7 @@ export function getPlayerNavigation() {
 export function getOrganizerNavigation({ tournamentId, roundId, matchId, groupId } = {}) {
   return [
     { label: 'Overview', to: '/organizer', active: (path) => path === '/organizer' },
-    { label: 'Tournaments', to: '/organizer/tournaments', active: (path) => path.startsWith('/organizer/tournaments') },
+    { label: 'Tournaments', to: '/organizer/tournaments', active: (path) => path.startsWith('/organizer/tournaments') || path === '/tournaments' || path.startsWith('/tournaments/') },
     ...(tournamentId ? [
       { label: 'Registrations', to: `/organizer/tournaments/${tournamentId}/registrations`, active: (path) => path.includes('/registrations') },
       { label: 'Competition setup', to: `/organizer/tournaments/${tournamentId}/rounds`, active: (path) => path.includes('/rounds') || path.includes('/groups') },

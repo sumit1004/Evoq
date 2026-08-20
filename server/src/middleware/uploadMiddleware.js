@@ -72,3 +72,27 @@ export const paymentEvidenceUpload = multer({
     return callback(null, true);
   },
 });
+
+const qrDirectory = path.resolve(config.uploadDirectory, 'payment-qrs');
+if (!fs.existsSync(qrDirectory)) {
+  fs.mkdirSync(qrDirectory, { recursive: true });
+}
+const qrStorage = multer.diskStorage({
+  destination: (_req, _file, callback) => callback(null, qrDirectory),
+  filename: (_req, _file, callback) => callback(null, `${Date.now()}-${randomUUID()}`),
+});
+export const qrUpload = multer({
+  storage: qrStorage,
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) return callback(new Error('Only PNG, JPEG, and WEBP images are allowed'));
+    return callback(null, true);
+  },
+});
+export function uploadPaymentQr(req, res, next) {
+  return qrUpload.single('paymentQr')(req, res, (error) => {
+    if (!error) return validateStoredImage(req, next);
+    return next(new AppError(error.message, { status: 400, code: 'UPLOAD_VALIDATION_ERROR' }));
+  });
+}
+

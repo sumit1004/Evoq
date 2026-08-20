@@ -15,12 +15,14 @@ describe('migration runner foundation', () => {
   it('requires a matching down migration for every up migration', async () => {
     const migrations = await getMigrations();
 
-    expect(migrations).toHaveLength(3);
+    expect(migrations).toHaveLength(4);
     expect(migrations[0].version).toBe('001_initial_schema');
     expect(migrations[0].downPath).toContain('001_initial_schema.down.sql');
     expect(migrations[1].version).toBe('002_match_result_media');
     expect(migrations[1].downPath).toContain('002_match_result_media.down.sql');
     expect(migrations[2].version).toBe('003_archive_cleanup_jobs');
     expect(migrations[2].downPath).toContain('003_archive_cleanup_jobs.down.sql');
+    expect(migrations[3].version).toBe('004_payment_architecture');
+    expect(migrations[3].downPath).toContain('004_payment_architecture.down.sql');
   });
 });

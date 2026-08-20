@@ -1,10 +1,46 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { createOrganizerTournament, getTournament, listAvailableTournaments, listOrganizerTournaments, updateOrganizerTournament } from '../services/tournamentService.js';
-import { buildTournamentRegistrationWorkbook, exportTournamentRegistrations, getRegistrationFile, getRegistrationForOrganizer, getRegistrationForPlayer, listPlayerTournamentRegistrations, listTournamentRegistrations, listTournamentRegistrationsPage, createPlayerRegistration, reviewTournamentRegistration } from '../services/registrationService.js';
+import { createOrganizerTournament, getTournament, getTournamentQrFile, listAvailableTournaments, listOrganizerTournaments, updateOrganizerTournament } from '../services/tournamentService.js';
+import {
+  buildTournamentRegistrationWorkbook,
+  exportTournamentRegistrations,
+  getRegistrationFile,
+  getRegistrationForOrganizer,
+  getRegistrationForPlayer,
+  listPlayerTournamentRegistrations,
+  listTournamentRegistrations,
+  listTournamentRegistrationsPage,
+  createPlayerRegistration,
+  reviewTournamentRegistration,
+  bulkVerifyRegistrations,
+  bulkRejectRegistrations
+} from '../services/registrationService.js';
 
 export const listTournaments = asyncHandler(async (req, res) => {
-  const tournaments = req.user?.role === 'ORGANIZER' && req.query.scope === 'mine' ? await listOrganizerTournaments(req.user.id) : await listAvailableTournaments();
-  res.status(200).json({ tournaments });
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 12;
+  const search = req.query.search || '';
+  const status = req.query.status || '';
+  const entryType = req.query.entryType || '';
+  const sort = req.query.sort || 'default';
+
+  const filters = { page, limit, search, status, entryType, sort };
+
+  let result;
+  if (req.user?.role === 'ORGANIZER' && req.query.scope === 'mine') {
+    result = await listOrganizerTournaments(req.user.id, filters);
+  } else {
+    result = await listAvailableTournaments(filters, req.user?.id);
+  }
+
+  res.status(200).json({
+    tournaments: result.tournaments,
+    pagination: {
+      page,
+      limit,
+      total: result.total,
+      totalPages: Math.ceil(result.total / limit)
+    }
+  });
 });
 
 export const getTournamentController = asyncHandler(async (req, res) => {
@@ -13,11 +49,19 @@ export const getTournamentController = asyncHandler(async (req, res) => {
 });
 
 export const createTournamentController = asyncHandler(async (req, res) => {
-  res.status(201).json({ tournament: await createOrganizerTournament(req.body, req.user.id) });
+  const body = { ...req.body };
+  if (req.file) {
+    body.paymentQrPath = req.file.filename;
+  }
+  res.status(201).json({ tournament: await createOrganizerTournament(body, req.user.id) });
 });
 
 export const updateTournamentController = asyncHandler(async (req, res) => {
-  res.status(200).json({ tournament: await updateOrganizerTournament(Number(req.params.tournamentId), req.body, req.user.id) });
+  const body = { ...req.body };
+  if (req.file) {
+    body.paymentQrPath = req.file.filename;
+  }
+  res.status(200).json({ tournament: await updateOrganizerTournament(Number(req.params.tournamentId), body, req.user.id) });
 });
 
 export const listRegistrationsController = asyncHandler(async (req, res) => {
@@ -47,9 +91,29 @@ export const exportRegistrationsController = asyncHandler(async (req, res) => {
   res.type('text/csv').set('Content-Disposition', `attachment; filename="tournament-${req.params.tournamentId}-registrations.csv"`).send(csv);
 });
 
-export const exportRegistrationsWorkbookController = asyncHandler(async (req, res) => { const buffer = await buildTournamentRegistrationWorkbook(Number(req.params.tournamentId), req.user.id); res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').set('Content-Disposition', `attachment; filename="tournament-${req.params.tournamentId}-registrations.xlsx"`).send(buffer); });
+export const exportRegistrationsWorkbookController = asyncHandler(async (req, res) => {
+  const buffer = await buildTournamentRegistrationWorkbook(Number(req.params.tournamentId), req.user.id);
+  res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').set('Content-Disposition', `attachment; filename="tournament-${req.params.tournamentId}-registrations.xlsx"`).send(buffer);
+});
 
 export const getPaymentEvidenceController = asyncHandler(async (req, res) => {
   const filePath = await getRegistrationFile(Number(req.params.registrationId), req.user.id);
   res.sendFile(filePath);
+});
+
+export const getTournamentQrController = asyncHandler(async (req, res) => {
+  const filePath = await getTournamentQrFile(Number(req.params.tournamentId));
+  res.sendFile(filePath);
+});
+
+export const bulkVerifyController = asyncHandler(async (req, res) => {
+  const registrationIds = Array.isArray(req.body.registrationIds) ? req.body.registrationIds.map(Number) : [];
+  const result = await bulkVerifyRegistrations(registrationIds, req.user.id);
+  res.status(200).json(result);
+});
+
+export const bulkRejectController = asyncHandler(async (req, res) => {
+  const registrationIds = Array.isArray(req.body.registrationIds) ? req.body.registrationIds.map(Number) : [];
+  const result = await bulkRejectRegistrations(registrationIds, req.body.rejectionReason, req.user.id);
+  res.status(200).json(result);
 });

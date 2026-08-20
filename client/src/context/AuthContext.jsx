@@ -11,27 +11,20 @@ function readIdentity() {
 export function AuthProvider({ children }) {
   const [identity, setIdentity] = useState(readIdentity);
   const [loading, setLoading] = useState(() => Boolean(window.localStorage.getItem('evoq.accessToken')));
+  const [serverError, setServerError] = useState(false);
 
-  useEffect(() => {
-    const token = window.localStorage.getItem('evoq.accessToken');
-    if (!token) { setLoading(false); return undefined; }
-    let cancelled = false;
-    apiClient.get('/auth/me')
-      .then(({ data }) => { if (!cancelled) setIdentity(data.identity); })
-      .catch(() => {
-        if (cancelled) return;
-        window.localStorage.removeItem('evoq.accessToken');
-        window.localStorage.removeItem(storageKey);
-        setIdentity(null);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+  const logout = useCallback(() => {
+    window.localStorage.removeItem('evoq.accessToken');
+    window.localStorage.removeItem(storageKey);
+    setIdentity(null);
+    setServerError(false);
   }, []);
 
   function persist(result) {
     window.localStorage.setItem('evoq.accessToken', result.token);
     window.localStorage.setItem(storageKey, JSON.stringify(result.identity));
     setIdentity(result.identity);
+    setServerError(false);
   }
 
   const login = useCallback(async (credentials) => {
@@ -44,13 +37,57 @@ export function AuthProvider({ children }) {
     catch (error) { throw normalizeApiError(error); }
   }, []);
 
-  const logout = useCallback(() => {
-    window.localStorage.removeItem('evoq.accessToken');
-    window.localStorage.removeItem(storageKey);
-    setIdentity(null);
-  }, []);
+  const verifySession = useCallback(() => {
+    const token = window.localStorage.getItem('evoq.accessToken');
+    if (!token) {
+      setLoading(false);
+      setServerError(false);
+      return;
+    }
+    setLoading(true);
+    setServerError(false);
+    
+    apiClient.get('/auth/me')
+      .then(({ data }) => {
+        setIdentity(data.identity);
+        window.localStorage.setItem(storageKey, JSON.stringify(data.identity));
+      })
+      .catch((error) => {
+        const status = error.response?.status;
+        if (status === 401) {
+          logout();
+        } else {
+          setServerError(true);
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [logout]);
 
-  const value = useMemo(() => ({ identity, loading, login, signup, logout }), [identity, loading, login, signup, logout]);
+  useEffect(() => {
+    // Interceptor to handle global 401s (token expiration)
+    const interceptor = apiClient.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          const isLoginRequest = error.config?.url?.endsWith('/auth/login');
+          if (!isLoginRequest) {
+            logout();
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    verifySession();
+
+    return () => {
+      apiClient.interceptors.response.eject(interceptor);
+    };
+  }, [logout, verifySession]);
+
+  const value = useMemo(() => ({ identity, loading, serverError, login, signup, logout, retry: verifySession }), [identity, loading, serverError, login, signup, logout, verifySession]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

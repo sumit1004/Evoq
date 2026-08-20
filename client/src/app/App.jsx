@@ -5,7 +5,7 @@ import { LandingPage } from '../pages/public/LandingPage.jsx';
 import { LoginPage } from '../pages/public/LoginPage.jsx';
 import { SignupPage } from '../pages/public/SignupPage.jsx';
 import { NotFoundPage } from '../pages/public/NotFoundPage.jsx';
-import { AuthProvider } from '../context/AuthContext.jsx';
+import { AuthProvider, useAuth } from '../context/AuthContext.jsx';
 import { PlayerOverviewPage, PlayerWorkspacePage } from '../pages/player/PlayerWorkspacePage.jsx';
 import { PlayerDashboardPage } from '../pages/player/PlayerDashboardPage.jsx';
 import { TeamsPage } from '../pages/player/TeamsPage.jsx';
@@ -31,18 +31,26 @@ import { PlayerGroupPage } from '../pages/player/PlayerGroupPage.jsx';
 import { TournamentHubPage } from '../pages/player/TournamentHubPage.jsx';
 import { MyTournamentsPage } from '../pages/player/MyTournamentsPage.jsx';
 
-export function App() {
+export function AppContent() {
+  const { serverError, retry } = useAuth();
   return (
-    <AuthProvider>
-      <SocketProvider>
+    <>
+      {serverError && (
+        <div className="connection-error-banner" style={{ background: '#e74c3c', color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', fontWeight: 'bold', zIndex: 9999, position: 'sticky', top: 0 }}>
+          <span>⚠️ EVOQ is temporarily unable to reach the server. Please check your connection.</span>
+          <button className="button secondary-button" style={{ minHeight: '28px', padding: '0 12px', fontSize: '12px', background: '#fff', color: '#e74c3c', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }} onClick={retry}>
+            Retry
+          </button>
+        </div>
+      )}
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
-          <Route path="tournaments" element={<TournamentsPage />} />
-          <Route path="tournaments/:tournamentId" element={<TournamentDetailsPage />} />
         </Route>
+        <Route path="tournaments" element={<TournamentsPage />} />
+        <Route path="tournaments/:tournamentId" element={<TournamentDetailsPage />} />
         <Route path="/player" element={<PlayerWorkspacePage />}>
           <Route index element={<PlayerOverviewPage />} />
           <Route path="dashboard" element={<PlayerDashboardPage />} />
@@ -74,6 +82,15 @@ export function App() {
         <Route path="notifications" element={<AuthenticatedLayout />}><Route index element={<NotificationsPage />} /></Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <SocketProvider>
+        <AppContent />
       </SocketProvider>
     </AuthProvider>
   );

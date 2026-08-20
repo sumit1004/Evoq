@@ -2,13 +2,94 @@ import { pool } from '../config/database.js';
 
 const fields = `id, organizer_id, name, description, tournament_date, registration_start_at,
   registration_end_at, max_teams, players_per_team, entry_type, entry_fee,
-  payment_qr_path, payment_instructions, status, completed_at, created_at, updated_at`;
+  payment_qr_path, payment_instructions, status, completed_at, created_at, updated_at,
+  payment_method, upi_id, payment_account_id, game`;
 
-export async function listTournaments({ organizerId } = {}) {
-  const [rows] = organizerId
-    ? await pool.query(`SELECT ${fields} FROM tournaments WHERE organizer_id = ? ORDER BY created_at DESC`, [organizerId])
-    : await pool.query(`SELECT ${fields} FROM tournaments WHERE status <> 'DRAFT' ORDER BY tournament_date IS NULL, tournament_date ASC`);
-  return rows;
+export async function listTournaments({ organizerId, viewerId, search, status, entryType, sort, page = 1, limit = 12 } = {}) {
+  const selectFields = `t.id, t.organizer_id, t.name, t.description, t.tournament_date, t.registration_start_at,
+    t.registration_end_at, t.max_teams, t.players_per_team, t.entry_type, t.entry_fee,
+    t.payment_qr_path, t.payment_instructions, t.status, t.completed_at, t.created_at, t.updated_at,
+    t.payment_method, t.upi_id, t.payment_account_id, t.game,
+    COUNT(DISTINCT r.id) AS registered_teams,
+    (SELECT r2.status
+     FROM registrations r2
+     JOIN team_members tm ON tm.team_id = r2.team_id
+     WHERE r2.tournament_id = t.id AND tm.user_id = ?
+     LIMIT 1) AS player_registration_status`;
+
+  let whereClauses = [];
+  let params = [];
+
+  // viewerId is the first parameter in the select fields subquery for player registration status
+  params.push(viewerId || null);
+
+  if (organizerId) {
+    whereClauses.push('t.organizer_id = ?');
+    params.push(organizerId);
+  } else {
+    // Public available: exclude DRAFT unless it belongs to the viewerId
+    if (viewerId) {
+      whereClauses.push('(t.status <> ? OR t.organizer_id = ?)');
+      params.push('DRAFT', viewerId);
+    } else {
+      whereClauses.push('t.status <> ?');
+      params.push('DRAFT');
+    }
+  }
+
+  if (search) {
+    whereClauses.push('(t.name LIKE ? OR t.description LIKE ?)');
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  if (status) {
+    whereClauses.push('t.status = ?');
+    params.push(status);
+  }
+
+  if (entryType) {
+    whereClauses.push('t.entry_type = ?');
+    params.push(entryType);
+  }
+
+  const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  // Count total matches for pagination
+  const countQuery = `SELECT COUNT(DISTINCT t.id) AS total FROM tournaments t ${whereSql}`;
+  const countParams = params.slice(1);
+  const [countResult] = await pool.query(countQuery, countParams);
+  const total = countResult[0]?.total || 0;
+
+  // Sorting
+  let orderBy = 't.created_at DESC';
+  if (sort === 'closing_soon') {
+    orderBy = 't.registration_end_at ASC';
+  } else if (sort === 'date_soonest') {
+    orderBy = 't.tournament_date ASC';
+  } else if (sort === 'default') {
+    orderBy = `CASE t.status
+      WHEN 'REGISTRATION_OPEN' THEN 1
+      WHEN 'LIVE' THEN 2
+      WHEN 'REGISTRATION_CLOSED' THEN 3
+      WHEN 'COMPLETED' THEN 4
+      ELSE 5
+    END, t.tournament_date ASC`;
+  }
+
+  // Pagination offset
+  const offset = (page - 1) * limit;
+  const listQuery = `
+    SELECT ${selectFields}
+    FROM tournaments t
+    LEFT JOIN registrations r ON r.tournament_id = t.id AND r.status IN ('PENDING', 'VERIFIED')
+    ${whereSql}
+    GROUP BY t.id
+    ORDER BY ${orderBy}
+    LIMIT ? OFFSET ?
+  `;
+
+  const [rows] = await pool.query(listQuery, [...params, Number(limit), Number(offset)]);
+  return { rows, total };
 }
 
 export async function findTournament(tournamentId) {
@@ -21,9 +102,26 @@ export async function createTournament(input) {
   try {
     await connection.beginTransaction();
     const [result] = await connection.query(
-      `INSERT INTO tournaments (organizer_id, name, description, tournament_date, registration_start_at, registration_end_at, max_teams, players_per_team, entry_type, entry_fee, payment_qr_path, payment_instructions)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [input.organizerId, input.name, input.description || null, input.tournamentDate || null, input.registrationStartAt, input.registrationEndAt, input.maxTeams, input.playersPerTeam, input.entryType, input.entryFee, input.paymentQrPath || null, input.paymentInstructions || null],
+      `INSERT INTO tournaments (organizer_id, name, description, tournament_date, registration_start_at, registration_end_at, max_teams, players_per_team, entry_type, entry_fee, payment_qr_path, payment_instructions, payment_method, upi_id, payment_account_id, game)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        input.organizerId,
+        input.name,
+        input.description || null,
+        input.tournamentDate || null,
+        input.registrationStartAt,
+        input.registrationEndAt,
+        input.maxTeams,
+        input.playersPerTeam,
+        input.entryType,
+        input.entryFee,
+        input.paymentQrPath || null,
+        input.paymentInstructions || null,
+        input.paymentMethod || null,
+        input.upiId || null,
+        input.paymentAccountId || null,
+        input.game || 'Free Fire',
+      ],
     );
     if (input.prizes?.length) {
       await connection.query('INSERT INTO tournament_prizes (tournament_id, position, amount) VALUES ?', [input.prizes.map((prize) => [result.insertId, prize.position, prize.amount])]);
@@ -42,7 +140,24 @@ export async function updateTournament(tournamentId, input) {
     await connection.beginTransaction();
     const columns = [];
     const values = [];
-    const allowed = { name: 'name', description: 'description', tournamentDate: 'tournament_date', registrationStartAt: 'registration_start_at', registrationEndAt: 'registration_end_at', maxTeams: 'max_teams', playersPerTeam: 'players_per_team', entryType: 'entry_type', entryFee: 'entry_fee', paymentInstructions: 'payment_instructions', status: 'status' };
+    const allowed = {
+      name: 'name',
+      description: 'description',
+      tournamentDate: 'tournament_date',
+      registrationStartAt: 'registration_start_at',
+      registrationEndAt: 'registration_end_at',
+      maxTeams: 'max_teams',
+      playersPerTeam: 'players_per_team',
+      entryType: 'entry_type',
+      entryFee: 'entry_fee',
+      paymentInstructions: 'payment_instructions',
+      status: 'status',
+      paymentMethod: 'payment_method',
+      upiId: 'upi_id',
+      paymentAccountId: 'payment_account_id',
+      paymentQrPath: 'payment_qr_path',
+      game: 'game',
+    };
     for (const [key, column] of Object.entries(allowed)) {
       if (input[key] !== undefined) { columns.push(`${column} = ?`); values.push(input[key]); }
     }
@@ -61,4 +176,12 @@ export async function updateTournament(tournamentId, input) {
 export async function listPrizes(tournamentId) {
   const [rows] = await pool.query('SELECT position, amount FROM tournament_prizes WHERE tournament_id = ? ORDER BY position ASC', [tournamentId]);
   return rows;
+}
+
+export async function findTournamentForUpdate(tournamentId, connection = pool) {
+  const [rows] = await connection.query(
+    `SELECT ${fields} FROM tournaments WHERE id = ? FOR UPDATE`,
+    [tournamentId],
+  );
+  return rows[0] || null;
 }

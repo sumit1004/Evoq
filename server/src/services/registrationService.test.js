@@ -11,14 +11,18 @@ vi.mock('../repositories/registrationRepository.js', () => ({
   listRegistrations: vi.fn(),
   reviewRegistration: vi.fn(),
 }));
-vi.mock('../repositories/tournamentRepository.js', () => ({ findTournament: vi.fn() }));
+vi.mock('../repositories/tournamentRepository.js', () => ({ findTournament: vi.fn(), findTournamentForUpdate: vi.fn() }));
 
 const repository = await import('../repositories/registrationRepository.js');
 const tournamentRepository = await import('../repositories/tournamentRepository.js');
 const { createPlayerRegistration, listTournamentRegistrationsPage, reviewTournamentRegistration } = await import('./registrationService.js');
 
 describe('registration service', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    tournamentRepository.findTournamentForUpdate.mockResolvedValue({ id: 5, organizer_id: 4, status: 'REGISTRATION_OPEN', max_teams: 10, entry_type: 'PAID', entry_fee: 100, payment_method: 'MANUAL_UPI' });
+    repository.getTournamentRegistrationCountForUpdate = vi.fn().mockResolvedValue(0);
+  });
 
   it('requires the team owner, open lifecycle, exact team size, and paid evidence', async () => {
     repository.getRegistrationContext.mockResolvedValue({ tournament_id: 5, tournament_status: 'REGISTRATION_OPEN', entry_type: 'PAID', players_per_team: 2, owner_id: 4, team_id: 7, member_count: 2 });
@@ -30,6 +34,7 @@ describe('registration service', () => {
   });
 
   it('rejects duplicate registration and only permits pending review', async () => {
+    tournamentRepository.findTournamentForUpdate.mockResolvedValue({ id: 5, organizer_id: 4, status: 'REGISTRATION_OPEN', max_teams: 10, entry_type: 'FREE', entry_fee: 0 });
     repository.getRegistrationContext.mockResolvedValue({ tournament_status: 'REGISTRATION_OPEN', entry_type: 'FREE', players_per_team: 1, owner_id: 4, member_count: 1 });
     repository.insertRegistration.mockRejectedValue({ code: 'ER_DUP_ENTRY' });
     await expect(createPlayerRegistration(5, { teamId: 7 }, 4, null))
@@ -52,5 +57,23 @@ describe('registration service', () => {
     repository.listRegistrations.mockResolvedValue([row]);
     repository.countRegistrations.mockResolvedValue(1);
     await expect(listTournamentRegistrationsPage(5, 4, { page: 1, limit: 20 })).resolves.toMatchObject({ pagination: { total: 1 }, registrations: [{ members: [{ uniquePlayerId: 'EVQ-1' }] }] });
+  });
+
+  it('validates registration prechecks for bulk actions', async () => {
+    const { precheckBulkVerification } = await import('./registrationService.js');
+    repository.findRegistration.mockResolvedValue([{ id: 10, tournament_id: 5, team_id: 7, status: 'PENDING', entry_type: 'PAID', payment_status: 'PAYMENT_SUBMITTED', payment_amount: 100, proof_url: 'ss.png', transaction_reference: 'TX123', organizer_id: 4, team_name: 'Beta', tournament_name: 'Cup', member_id: 4, member_name: 'Player', member_email: 'p@example.com', unique_player_id: 'EVQ-2' }]);
+    
+    const prechecks = await precheckBulkVerification([10], 4);
+    expect(prechecks[0]).toMatchObject({ id: 10, check: 'Eligible' });
+  });
+
+  it('runs bulk rejection successfully', async () => {
+    const { bulkRejectRegistrations } = await import('./registrationService.js');
+    repository.findRegistration.mockResolvedValue([{ id: 12, tournament_id: 5, team_id: 8, status: 'PENDING', entry_type: 'FREE', organizer_id: 4, team_name: 'Gamma', tournament_name: 'Cup', member_id: 5, member_name: 'P3', member_email: 'p3@example.com', unique_player_id: 'EVQ-3' }]);
+    repository.reviewRegistration.mockResolvedValue(1);
+
+    const result = await bulkRejectRegistrations([12], 'Invalid credentials', 4);
+    expect(result.rejectedCount).toBe(1);
+    expect(result.rejectedIds).toContain(12);
   });
 });
