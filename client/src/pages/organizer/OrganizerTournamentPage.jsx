@@ -22,7 +22,7 @@ const ORGANIZER_TABS = ['overview', 'rounds', 'registrations', 'leaderboard', 'a
 export function OrganizerTournamentPage() {
   const { tournamentId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { joinTournament, leaveTournament, on, connected } = useSocket();
+  const { joinTournament, leaveTournament, on } = useSocket();
 
   const activeTab = ORGANIZER_TABS.includes(searchParams.get('tab'))
     ? searchParams.get('tab')
@@ -44,7 +44,6 @@ export function OrganizerTournamentPage() {
 
   // Forms
   const [newRound, setNewRound] = useState({ roundNumber: 1, name: 'Round 1' });
-  const [newGroup, setNewGroup] = useState({ roundId: '', name: 'Group A', groupSize: 12 });
   const [announcementText, setAnnouncementText] = useState('');
   const [state, setState] = useState({ loading: true, submitting: false, error: '', notice: '' });
 
@@ -82,15 +81,12 @@ export function OrganizerTournamentPage() {
             try {
               const res = await fetchGroups(r.id);
               groupMap[r.id] = res.groups || [];
-            } catch (e) {
+            } catch {
               groupMap[r.id] = [];
             }
           })
         );
         setRoundGroups(groupMap);
-        if (roundList.length > 0) {
-          setNewGroup((g) => ({ ...g, roundId: g.roundId || roundList[0].id }));
-        }
       }
 
       if (leaderRes.status === 'fulfilled') {
@@ -173,27 +169,6 @@ export function OrganizerTournamentPage() {
       setState((s) => ({ ...s, notice: 'Round started.' }));
     } catch (error) {
       setState((s) => ({ ...s, error: error.message }));
-    }
-  };
-
-  // Create Group
-  const handleCreateGroup = async (e) => {
-    e.preventDefault();
-    if (!newGroup.roundId) return;
-    setState((s) => ({ ...s, submitting: true, error: '', notice: '' }));
-    try {
-      const result = await createGroup(newGroup.roundId, {
-        name: newGroup.name.trim(),
-        groupSize: Number(newGroup.groupSize) || 12
-      });
-      setRoundGroups((prev) => ({
-        ...prev,
-        [newGroup.roundId]: [...(prev[newGroup.roundId] || []), result.group]
-      }));
-      setNewGroup((g) => ({ ...g, name: `Group ${String.fromCharCode(65 + (roundGroups[newGroup.roundId]?.length || 0) + 1)}` }));
-      setState({ loading: false, submitting: false, notice: `Group "${result.group.name}" created.`, error: '' });
-    } catch (error) {
-      setState({ loading: false, submitting: false, error: error.message, notice: '' });
     }
   };
 

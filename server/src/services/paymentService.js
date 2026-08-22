@@ -5,10 +5,10 @@ export class PaymentProvider {
   constructor(name) {
     this.name = name;
   }
-  async createOrder(params) {
+  async createOrder(_params) {
     throw new Error('Not implemented');
   }
-  async verifyPayment(params) {
+  async verifyPayment(_params) {
     throw new Error('Not implemented');
   }
 }
@@ -25,7 +25,7 @@ export class ManualUPIPaymentProvider extends PaymentProvider {
       submittedAt: new Date(),
     };
   }
-  async verifyPayment(params) {
+  async verifyPayment(_params) {
     return { status: 'PAID', capturedAt: new Date() };
   }
 }
@@ -34,10 +34,10 @@ export class RazorpayPaymentProvider extends PaymentProvider {
   constructor() {
     super('ONLINE');
   }
-  async createOrder(params) {
+  async createOrder(_params) {
     throw errorResponses.validation({ payment: 'Online payments are not configured for this tournament.' });
   }
-  async verifyPayment(params) {
+  async verifyPayment(_params) {
     throw errorResponses.validation({ payment: 'Online payments are not configured for this tournament.' });
   }
 }

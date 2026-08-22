@@ -10,7 +10,6 @@ import {
   fetchResults
 } from '../../services/competitionApi.js';
 import { useSocket } from '../../context/SocketContext.jsx';
-import { useAuth } from '../../context/AuthContext.jsx';
 import { GroupChatView } from '../../components/GroupChatView.jsx';
 
 const PRIMARY_TABS = ['overview', 'group', 'leaderboard'];
@@ -19,7 +18,6 @@ const GROUP_SUBTABS = ['overview', 'matches', 'leaderboard', 'chat'];
 export function TournamentHubPage() {
   const { tournamentId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { identity } = useAuth();
   const { joinTournament, leaveTournament, on, connected } = useSocket();
 
   // URL state management
@@ -503,7 +501,7 @@ export function TournamentHubPage() {
               textAlign: 'center'
             }}>
               <div style={{ fontSize: '40px', marginBottom: '15px' }}>⏳</div>
-              <h3 style={{ color: '#fff', margin: '0 0 10px 0' }}>You haven't been assigned to a group yet</h3>
+              <h3 style={{ color: '#fff', margin: '0 0 10px 0' }}>You haven&apos;t been assigned to a group yet</h3>
               <p style={{ color: '#91a0b3', maxWidth: '500px', margin: '0 auto' }}>
                 Once the organizer opens Round 1 and assigns your team, your room details, match schedules, group leaderboard, and team chat will appear here.
               </p>

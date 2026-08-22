@@ -45,7 +45,7 @@ export function OrganizerOverviewPage() {
         <div className="dashboard-welcome empty-welcome">
           <div>
             <h1>Welcome to EVOQ, {identity?.name}</h1>
-            <p>You don't have any tournaments yet.</p>
+            <p>You don&apos;t have any tournaments yet.</p>
             <p className="empty-subtext">Create your first tournament to start managing registrations, groups and matches.</p>
           </div>
           <Link className="button primary-button" to="/organizer/tournaments">+ Create Tournament</Link>
