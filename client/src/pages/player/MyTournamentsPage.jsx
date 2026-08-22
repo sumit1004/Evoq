@@ -23,7 +23,12 @@ function TournamentCard({ tournament }) {
     <article className="dashboard-tournament my-tournament-card">
       <div className="tournament-accent" />
       <div className="dashboard-tournament-top">
-        <Status value={tournament.status} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Status value={tournament.status} />
+          <span className="hero-tag game-tag" style={{ fontSize: '11px', padding: '2px 6px' }}>
+            {tournament.game || 'Free Fire'}
+          </span>
+        </div>
         <span>{tournament.registrationStatus}</span>
       </div>
       <h2 className="my-tournament-name">{tournament.name}</h2>
@@ -35,11 +40,12 @@ function TournamentCard({ tournament }) {
         </p>
       )}
       <Link
-        className="text-arrow"
+        className="button primary-button"
+        style={{ minHeight: '36px', padding: '0 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginTop: '10px', textDecoration: 'none' }}
         to={`/player/communications/${tournament.id}`}
         aria-label={`Open tournament: ${tournament.name}`}
       >
-        Open tournament <span>↗</span>
+        Open Tournament →
       </Link>
     </article>
   );
