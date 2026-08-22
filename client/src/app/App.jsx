@@ -58,6 +58,7 @@ export function AppContent() {
           <Route path="my-tournaments" element={<MyTournamentsPage />} />
           <Route path="groups/:groupId" element={<PlayerGroupPage />} />
           <Route path="communications/:tournamentId" element={<TournamentHubPage />} />
+          <Route path="tournaments/:tournamentId" element={<TournamentHubPage />} />
           <Route path="groups/:groupId/chat" element={<GroupChatPage />} />
         </Route>
         <Route path="/organizer" element={<OrganizerWorkspacePage />}>

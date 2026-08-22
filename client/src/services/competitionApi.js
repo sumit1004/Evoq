@@ -23,3 +23,7 @@ export const fetchTournamentLeaderboard = (tournamentId) => request(() => apiCli
 export const fetchQualifications = (roundId) => request(() => apiClient.get(`/rounds/${roundId}/qualifications`));
 export const selectQualification = (roundId, teamId) => request(() => apiClient.post(`/rounds/${roundId}/qualifications`, { teamId }));
 export const removeQualification = (roundId, teamId) => request(() => apiClient.delete(`/rounds/${roundId}/qualifications/${teamId}`));
+export const fetchGroupLeaderboard = (groupId) => request(() => apiClient.get(`/groups/${groupId}/leaderboard`));
+export const completeGroup = (groupId) => request(() => apiClient.post(`/groups/${groupId}/complete`));
+export const removeGroupTeam = (groupId, teamId) => request(() => apiClient.delete(`/groups/${groupId}/teams/${teamId}`));
+export const fetchGroupMatches = (groupId) => request(() => apiClient.get(`/groups/${groupId}/matches`));

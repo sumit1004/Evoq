@@ -4020,3 +4020,277 @@ body.drawer-open {
     gap: 16px;
   }
 }
+
+/* ========================================================================= */
+/* ESPORTS REALTIME GROUP CHAT COMPONENT */
+/* ========================================================================= */
+.esports-chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 520px;
+  max-height: 75vh;
+  background: #11161d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.esports-chat-header {
+  padding: 12px 18px;
+  background: rgba(28, 33, 40, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-title-row h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(46, 204, 113, 0.6);
+}
+
+.chat-header-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #91a0b3;
+}
+
+.chat-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2ecc71;
+  background: rgba(46, 204, 113, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.esports-chat-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #0d1117;
+}
+
+.esports-chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.esports-chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.chat-empty-state {
+  margin: auto;
+  text-align: center;
+  padding: 30px 20px;
+  color: #91a0b3;
+}
+
+.chat-empty-state .empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.chat-empty-state h4 {
+  margin: 0 0 4px 0;
+  color: #fff;
+  font-size: 15px;
+}
+
+.chat-empty-state p {
+  margin: 0;
+  font-size: 13px;
+  max-width: 320px;
+}
+
+.chat-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.chat-message-row.is-self {
+  flex-direction: row-reverse;
+}
+
+.chat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #21262d;
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  color: #7dd3fc;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chat-avatar-spacer {
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.chat-bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+}
+
+.chat-message-row.is-self .chat-bubble-wrapper {
+  align-items: flex-end;
+}
+
+.chat-sender-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+
+.chat-sender-name {
+  font-weight: 600;
+  color: #cdd6e2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.organizer-badge {
+  font-size: 9px;
+  background: rgba(246, 196, 83, 0.2);
+  color: #f6c453;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+.chat-timestamp {
+  color: #6e7681;
+}
+
+.chat-bubble {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-message-row.is-other .chat-bubble {
+  background: #1c2128;
+  color: #f6f8fb;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-message-row.is-self .chat-bubble {
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+.chat-bubble p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.chat-inline-time {
+  display: block;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: right;
+  margin-top: 2px;
+}
+
+.chat-unread-badge-btn {
+  position: absolute;
+  bottom: 65px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #238636;
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 5;
+  transition: transform 0.15s ease;
+}
+
+.chat-unread-badge-btn:hover {
+  transform: translateX(-50%) scale(1.05);
+}
+
+.esports-chat-composer {
+  padding: 10px 14px;
+  background: #161b22;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.chat-readonly-banner {
+  text-align: center;
+  font-size: 12px;
+  color: #91a0b3;
+  padding: 6px 0;
+}
+
+.chat-input-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chat-input-field {
+  flex: 1;
+  min-height: 38px;
+  background: #0d1117;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #fff;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.chat-input-field:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.chat-send-btn {
+  min-height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
