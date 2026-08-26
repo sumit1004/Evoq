@@ -55,4 +55,16 @@ describe('API foundation', () => {
     expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
   });
 
+  it('returns readiness status on /api/health/ready and /api/health/db', async () => {
+    const app = createApp();
+    const readyRes = await request(app).get('/api/health/ready');
+    expect([200, 503]).toContain(readyRes.status);
+    expect(readyRes.body).toHaveProperty('status');
+    expect(readyRes.body).toHaveProperty('checks');
+
+    const dbRes = await request(app).get('/api/health/db');
+    expect([200, 503]).toContain(dbRes.status);
+    expect(dbRes.body).toHaveProperty('status');
+  });
 });
+

@@ -117,7 +117,7 @@ export function TournamentDetailsPage() {
                 {tournament.prizes.map((prize) => (
                   <div key={prize.position} style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '4px', textAlign: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#91a0b3', display: 'block' }}>
-                      {prize.position === 1 ? '🥇 1st' : prize.position === 2 ? '🥈 2nd' : prize.position === 3 ? '🥉 3rd' : `${prize.position}th`}
+                      {prize.position === 1 ? '1st Place' : prize.position === 2 ? '2nd Place' : prize.position === 3 ? '3rd Place' : `${prize.position}th Place`}
                     </span>
                     <strong style={{ fontSize: '16px', color: '#f6c453', display: 'block', marginTop: '4px' }}>
                       ₹{Number(prize.amount).toLocaleString()}

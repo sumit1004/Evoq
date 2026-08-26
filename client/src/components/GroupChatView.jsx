@@ -152,7 +152,6 @@ export function GroupChatView({ groupId, groupName, isCompleted = false }) {
 
         {!state.loading && messages.length === 0 && (
           <div className="chat-empty-state">
-            <div className="empty-icon">💬</div>
             <h4>No messages in this group yet</h4>
             <p>Coordinate strategies, room joining, and match details with your group participants.</p>
           </div>
@@ -217,7 +216,7 @@ export function GroupChatView({ groupId, groupName, isCompleted = false }) {
       <div className="esports-chat-composer">
         {isCompleted ? (
           <div className="chat-readonly-banner">
-            🔒 Tournament completed. Group chat is closed and archived.
+            Tournament completed. Group chat is closed and archived.
           </div>
         ) : (
           <form className="chat-input-form" onSubmit={handleSend}>

@@ -8,13 +8,13 @@ export function TournamentLeaderboardView({
       {/* Completed Tournament Podium */}
       {isCompleted && leaderboard.length >= 3 && (
         <div className="final-podium-card">
-          <span className="podium-kicker">🏆 OFFICIAL TOURNAMENT CHAMPIONS</span>
+          <span className="podium-kicker">OFFICIAL TOURNAMENT CHAMPIONS</span>
           <h2 className="podium-title">Final Tournament Standings</h2>
 
           <div className="podium-layout">
             {/* 2nd Place */}
             <div className="podium-step step-silver">
-              <div className="podium-medal">🥈 2nd Place</div>
+              <div className="podium-medal">2nd Place</div>
               <strong className="podium-team-name">{leaderboard[1].teamName}</strong>
               <span className="podium-stats">
                 {leaderboard[1].points} pts · {leaderboard[1].kills} kills
@@ -23,7 +23,7 @@ export function TournamentLeaderboardView({
 
             {/* 1st Place */}
             <div className="podium-step step-gold">
-              <div className="podium-medal">👑 CHAMPION</div>
+              <div className="podium-medal">CHAMPION</div>
               <strong className="podium-team-name gold-name">{leaderboard[0].teamName}</strong>
               <span className="podium-stats gold-stats">
                 {leaderboard[0].points} pts · {leaderboard[0].kills} kills
@@ -32,7 +32,7 @@ export function TournamentLeaderboardView({
 
             {/* 3rd Place */}
             <div className="podium-step step-bronze">
-              <div className="podium-medal">🥉 3rd Place</div>
+              <div className="podium-medal">3rd Place</div>
               <strong className="podium-team-name">{leaderboard[2].teamName}</strong>
               <span className="podium-stats">
                 {leaderboard[2].points} pts · {leaderboard[2].kills} kills
@@ -45,7 +45,7 @@ export function TournamentLeaderboardView({
       {/* Live State Note */}
       {!isCompleted && leaderboard.length > 0 && (
         <div className="live-leaderboard-notice">
-          <span>ℹ️ Final standings will appear when the tournament is completed.</span>
+          <span>Final standings will appear when the tournament is completed.</span>
         </div>
       )}
 

@@ -6,6 +6,9 @@ export const realtimeEvents = Object.freeze({
   resultUpload: 'result_upload',
   roomUpdated: 'room_updated',
   chatMessage: 'chat_message',
+  groupAssignmentLocked: 'group_assignment_locked',
+  qualificationFinalized: 'qualification_finalized',
+  nextRoundCreated: 'next_round_created',
 });
 
 export const realtimeRooms = Object.freeze({

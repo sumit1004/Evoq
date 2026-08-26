@@ -1,12 +1,257 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { assignTeam, createGroup, fetchEligibleTeams, fetchGroups } from '../../services/competitionApi.js';
+import {
+  autoAssignGroups,
+  bulkMoveTeams,
+  createGroup,
+  fetchEligibleTeams,
+  fetchGroups,
+  getRound,
+  lockRoundAssignment,
+} from '../../services/competitionApi.js';
+import { RoundSetupWizard } from '../../components/organizer/RoundSetupWizard.jsx';
+import { AssignmentWorkspace } from '../../components/organizer/AssignmentWorkspace.jsx';
 
 export function OrganizerGroupsPage() {
-  const { tournamentId, roundId } = useParams(); const [groups, setGroups] = useState([]); const [teams, setTeams] = useState([]); const [form, setForm] = useState({ name: '', groupSize: 4 }); const [state, setState] = useState({ loading: true, error: '', notice: '' });
-  const load = useCallback(async () => { try { const [groupResult, teamResult] = await Promise.all([fetchGroups(roundId), fetchEligibleTeams(roundId)]); setGroups(groupResult.groups); setTeams(teamResult.teams); setState((s) => ({ ...s, loading: false })); } catch (error) { setState({ loading: false, error: error.message, notice: '' }); } }, [roundId]); useEffect(() => { load(); }, [load]);
-  async function submit(event) { event.preventDefault(); try { const result = await createGroup(roundId, { ...form, groupSize: Number(form.groupSize) }); setGroups((current) => [...current, result.group]); setForm({ name: '', groupSize: 4 }); setState((s) => ({ ...s, error: '', notice: 'Group created.' })); } catch (error) { setState((s) => ({ ...s, error: error.message, notice: '' })); } }
-  async function assign(groupId, teamId) { if (!teamId) return; try { const result = await assignTeam(groupId, teamId); setGroups((current) => current.map((group) => group.id === groupId ? result.group : group)); setState((s) => ({ ...s, error: '', notice: 'Eligible team assigned.' })); } catch (error) { setState((s) => ({ ...s, error: error.message, notice: '' })); } }
-  const assigned = new Set(groups.flatMap((group) => (group.teams || []).map((team) => String(team.id))));
-  return <section className="workspace-page"><Link className="text-link" to={`/organizer/tournaments/${tournamentId}/rounds`}>Back to rounds</Link><div className="page-kicker">Round {roundId}</div><h1>Groups</h1><p>Assign eligible verified or qualified teams to groups and prepare match rooms.</p>{state.error && <div className="form-alert" role="alert">{state.error}</div>}{state.notice && <div className="success-alert" role="status">{state.notice}</div>}<div className="organizer-grid"><form className="team-form" onSubmit={submit}><h2>Create group</h2><label htmlFor="group-name">Name</label><input id="group-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /><label htmlFor="group-size">Group size</label><input id="group-size" type="number" min="1" value={form.groupSize} onChange={(e) => setForm({ ...form, groupSize: e.target.value })} /><button className="button primary-button" type="submit">Create group</button></form><div className="team-list"><h2>Groups</h2>{state.loading && <p className="status-panel">Loading groups...</p>}{!state.loading && !groups.length && <p className="empty-state">No groups created yet.</p>}{groups.map((group) => <div className="competition-item" key={group.id}><div><span className="tournament-status">{group.status.replaceAll('_', ' ')}</span><h3>{group.name}</h3><p>{group.teams?.length || 0} / {group.groupSize} teams assigned</p></div><div className="competition-actions"><select aria-label={`Assign team to ${group.name}`} defaultValue="" onChange={(e) => assign(group.id, e.target.value)} disabled={group.status === 'COMPLETED'}><option value="">Assign eligible team</option>{teams.filter((team) => !assigned.has(String(team.id))).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select><Link className="button ghost-button" to={`/organizer/tournaments/${tournamentId}/groups/${group.id}`}>Open group</Link></div></div>)}</div></div></section>;
+  const { tournamentId, roundId } = useParams();
+  const [round, setRound] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [eligibleTeams, setEligibleTeams] = useState([]);
+  const [showManualCreate, setShowManualCreate] = useState(false);
+  const [manualForm, setManualForm] = useState({ name: '', groupSize: 12 });
+  const [state, setState] = useState({
+    loading: true,
+    actionLoading: false,
+    error: '',
+    notice: '',
+  });
+
+  const loadData = useCallback(async () => {
+    if (!roundId || Number.isNaN(Number(roundId))) {
+      setState({ loading: false, actionLoading: false, error: 'Invalid round ID', notice: '' });
+      return;
+    }
+    setState((s) => ({ ...s, loading: true, error: '', notice: '' }));
+    try {
+      const [roundRes, groupRes, teamRes] = await Promise.all([
+        getRound(roundId).catch(() => ({ round: null })),
+        fetchGroups(roundId),
+        fetchEligibleTeams(roundId),
+      ]);
+
+      if (roundRes?.round) setRound(roundRes.round);
+      setGroups(groupRes.groups || []);
+      setEligibleTeams(teamRes.teams || []);
+      setState({ loading: false, actionLoading: false, error: '', notice: '' });
+    } catch (error) {
+      setState({ loading: false, actionLoading: false, error: error.message, notice: '' });
+    }
+  }, [roundId]);
+
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Handle Auto Assignment Generation
+  const handleGenerate = async (config) => {
+    setState((s) => ({ ...s, actionLoading: true, error: '', notice: '' }));
+    try {
+      const result = await autoAssignGroups(roundId, config);
+      if (result.round) setRound(result.round);
+      setGroups(result.groups || []);
+      setState({
+        loading: false,
+        actionLoading: false,
+        error: '',
+        notice: `Generated ${result.totalGroups} balanced groups for ${result.totalEligible} teams.`,
+      });
+    } catch (error) {
+      setState((s) => ({ ...s, actionLoading: false, error: error.message }));
+    }
+  };
+
+  // Handle Bulk Team Movement
+  const handleBulkMove = async (payload) => {
+    setState((s) => ({ ...s, actionLoading: true, error: '', notice: '' }));
+    try {
+      const result = await bulkMoveTeams(roundId, payload);
+      setGroups(result.groups || []);
+      setState({
+        loading: false,
+        actionLoading: false,
+        error: '',
+        notice: `Successfully moved ${payload.teamIds.length} teams.`,
+      });
+    } catch (error) {
+      setState((s) => ({ ...s, actionLoading: false, error: error.message }));
+    }
+  };
+
+  // Handle Lock Assignment
+  const handleLock = async () => {
+    setState((s) => ({ ...s, actionLoading: true, error: '', notice: '' }));
+    try {
+      const result = await lockRoundAssignment(roundId);
+      if (result.round) setRound(result.round);
+      setState({
+        loading: false,
+        actionLoading: false,
+        error: '',
+        notice: 'Group assignment is now officially locked. Teams cannot be moved.',
+      });
+    } catch (error) {
+      setState((s) => ({ ...s, actionLoading: false, error: error.message }));
+    }
+  };
+
+  // Handle Manual Group Creation
+  const handleManualGroupSubmit = async (e) => {
+    e.preventDefault();
+    setState((s) => ({ ...s, actionLoading: true, error: '', notice: '' }));
+    try {
+      const result = await createGroup(roundId, {
+        name: manualForm.name.trim(),
+        groupSize: Number(manualForm.groupSize),
+      });
+      setGroups((current) => [...current, result.group]);
+      setManualForm({ name: '', groupSize: 12 });
+      setShowManualCreate(false);
+      setState({
+        loading: false,
+        actionLoading: false,
+        error: '',
+        notice: `Created group ${result.group.name}.`,
+      });
+    } catch (error) {
+      setState((s) => ({ ...s, actionLoading: false, error: error.message }));
+    }
+  };
+
+  const isLocked = round?.isLocked || round?.assignmentStatus === 'LOCKED';
+
+  return (
+    <section className="workspace-page">
+      <div className="workspace-nav-bar">
+        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}?tab=rounds`}>
+          Back to tournament rounds
+        </Link>
+        <div className="nav-actions">
+          <Link
+            className="button ghost-button"
+            to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}/qualifications`}
+          >
+            Qualification Center
+          </Link>
+        </div>
+      </div>
+
+      <div className="page-header-row">
+        <div>
+          <div className="page-kicker">
+            Round {round?.roundNumber || roundId} · {round?.status?.replaceAll('_', ' ') || 'Competition'}
+          </div>
+          <h1>{round?.name || `Round ${roundId}`} Groups</h1>
+          <p>
+            Configure balanced group distribution, preview assignments, adjust rosters, and lock
+            groups before starting matches.
+          </p>
+        </div>
+      </div>
+
+      {state.error && <div className="form-alert" role="alert">{state.error}</div>}
+      {state.notice && <div className="success-alert" role="status">{state.notice}</div>}
+
+      {state.loading && <p className="status-panel">Loading round setup and teams...</p>}
+
+      {!state.loading && (
+        <div className="round-groups-layout">
+          {/* If no groups exist yet or draft not locked, show setup wizard */}
+          {(!isLocked || groups.length === 0) && (
+            <RoundSetupWizard
+              roundNumber={round?.roundNumber || 1}
+              eligibleTeamsCount={eligibleTeams.length}
+              isGenerating={state.actionLoading}
+              isLocked={isLocked}
+              onGenerate={handleGenerate}
+            />
+          )}
+
+          {/* Manual Group Creation Accordion Toggle */}
+          {!isLocked && (
+            <div className="manual-create-strip">
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => setShowManualCreate((v) => !v)}
+              >
+                {showManualCreate ? 'Hide manual group creator' : '+ Add custom group manually'}
+              </button>
+
+              {showManualCreate && (
+                <form className="team-form inline-create-form" onSubmit={handleManualGroupSubmit}>
+                  <div className="form-row">
+                    <div>
+                      <label htmlFor="custom-group-name">Group Name</label>
+                      <input
+                        id="custom-group-name"
+                        value={manualForm.name}
+                        onChange={(e) => setManualForm({ ...manualForm, name: e.target.value })}
+                        placeholder="e.g. Group X"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="custom-group-size">Max Capacity</label>
+                      <input
+                        id="custom-group-size"
+                        type="number"
+                        min="2"
+                        value={manualForm.groupSize}
+                        onChange={(e) => setManualForm({ ...manualForm, groupSize: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div style={{ alignSelf: 'flex-end' }}>
+                      <button
+                        className="button secondary-button"
+                        type="submit"
+                        disabled={state.actionLoading}
+                      >
+                        Add Group
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* Assignment Workspace & Group Panels */}
+          {groups.length > 0 ? (
+            <AssignmentWorkspace
+              tournamentId={tournamentId}
+              round={round}
+              groups={groups}
+              eligibleTeams={eligibleTeams}
+              isActionLoading={state.actionLoading}
+              onBulkMove={handleBulkMove}
+              onLockAssignment={handleLock}
+              onRegenerate={() =>
+                handleGenerate({
+                  mode: 'BY_SIZE',
+                  targetGroupSize: groups[0]?.groupSize || 12,
+                })
+              }
+            />
+          ) : (
+            <div className="empty-workspace-card">
+              <h3>No groups generated yet</h3>
+              <p>Use the Automated Group Setup above to calculate and preview balanced groups.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }

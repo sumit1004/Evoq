@@ -310,7 +310,7 @@ export function TournamentHubPage() {
                 type="button"
                 onClick={() => setTab('group', 'overview')}
               >
-                ⚔️ Open {activeGroup.name}
+                Open {activeGroup.name}
               </button>
             )}
             {activeGroup && (activeGroup.roomId || activeGroup.roomPassword) && (
@@ -319,7 +319,7 @@ export function TournamentHubPage() {
                 type="button"
                 onClick={() => setTab('group', 'overview')}
               >
-                🔑 View Room Credentials
+                View Room Credentials
               </button>
             )}
             {currentOrNextMatch && (
@@ -328,7 +328,7 @@ export function TournamentHubPage() {
                 type="button"
                 onClick={() => setTab('group', 'matches')}
               >
-                🎮 Next Match ({currentOrNextMatch.name || `Match ${currentOrNextMatch.matchNumber}`})
+                Next Match ({currentOrNextMatch.name || `Match ${currentOrNextMatch.matchNumber}`})
               </button>
             )}
             <button
@@ -336,7 +336,7 @@ export function TournamentHubPage() {
               type="button"
               onClick={() => setTab('leaderboard')}
             >
-              🏆 View Leaderboard
+              View Leaderboard
             </button>
           </div>
 
@@ -415,7 +415,6 @@ export function TournamentHubPage() {
         <div className="my-group-container">
           {!activeGroup ? (
             <div className="empty-group-state">
-              <div className="empty-state-icon">⏳</div>
               <h3>Your group has not been assigned yet</h3>
               <p>
                 Once the organizer opens Round 1 and assigns your team, your room details, match schedules, group leaderboard, and team chat will appear here.

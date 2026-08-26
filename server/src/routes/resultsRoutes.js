@@ -12,7 +12,7 @@ const organizer = [authenticateRequest, requireRoles('ORGANIZER', 'ADMIN')];
 export const resultsRouter = Router();
 
 resultsRouter.get('/matches/:matchId/results', ...authenticated, validateRequest({ params: validateMatchResultParams }), controller.listMatchResults);
-resultsRouter.post('/matches/:matchId/results', mutationRateLimiter, ...organizer, validateRequest({ params: validateMatchResultParams, body: validateResultCreate }), uploadResultMedia, controller.createMatchResult);
+resultsRouter.post('/matches/:matchId/results', mutationRateLimiter, ...organizer, uploadResultMedia, validateRequest({ params: validateMatchResultParams, body: validateResultCreate }), controller.createMatchResult);
 resultsRouter.get('/tournaments/:tournamentId/results', ...authenticated, validateRequest({ params: validateTournamentResultsParams }), controller.tournamentResults);
 resultsRouter.get('/tournaments/:tournamentId/leaderboards', ...authenticated, validateRequest({ params: validateTournamentResultsParams }), controller.tournamentLeaderboard);
 
@@ -22,5 +22,9 @@ resultsRouter.get('/groups/:groupId/leaderboard', ...authenticated, validateRequ
 resultsRouter.get('/rounds/:roundId/leaderboard', ...authenticated, validateRequest({ params: validateRoundLeaderboardParams }), controller.roundLeaderboard);
 
 resultsRouter.get('/rounds/:roundId/qualifications', ...authenticated, validateRequest({ params: validateRoundId }), controller.qualifications);
+resultsRouter.get('/rounds/:roundId/qualification-center', ...authenticated, validateRequest({ params: validateRoundId }), controller.qualificationCenter);
 resultsRouter.post('/rounds/:roundId/qualifications', ...organizer, validateRequest({ params: validateRoundId, body: validateQualificationCreate }), controller.selectQualification);
+resultsRouter.post('/rounds/:roundId/qualifications/finalize', ...organizer, validateRequest({ params: validateRoundId }), controller.finalizeQualifications);
+resultsRouter.post('/rounds/:roundId/qualifications/reopen', ...organizer, validateRequest({ params: validateRoundId }), controller.reopenQualifications);
 resultsRouter.delete('/rounds/:roundId/qualifications/:teamId', ...organizer, validateRequest({ params: validateQualificationParams }), controller.removeQualification);
+

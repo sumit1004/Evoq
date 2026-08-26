@@ -34,6 +34,7 @@ assertProductionEnv();
 
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
+  host: process.env.HOST || '0.0.0.0',
   port: getNumber('PORT', 4000),
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'development-only-secret',
@@ -46,5 +47,7 @@ export const config = {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'evoq',
     connectionLimit: getNumber('DB_CONNECTION_LIMIT', 10),
+    connectTimeout: getNumber('DB_CONNECT_TIMEOUT', 10000),
   },
 };
+

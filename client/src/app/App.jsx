@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { PublicLayout } from '../layouts/PublicLayout.jsx';
 import { AuthenticatedLayout } from '../layouts/AuthenticatedLayout.jsx';
 import { LandingPage } from '../pages/public/LandingPage.jsx';
@@ -15,7 +15,6 @@ import { OrganizerWorkspacePage } from '../pages/organizer/OrganizerWorkspacePag
 import { OrganizerOverviewPage } from '../pages/organizer/OrganizerOverviewPage.jsx';
 import { OrganizerTournamentPage } from '../pages/organizer/OrganizerTournamentPage.jsx';
 import { OrganizerTournamentsPage } from '../pages/organizer/OrganizerTournamentsPage.jsx';
-import { OrganizerRoundsPage } from '../pages/organizer/OrganizerRoundsPage.jsx';
 import { OrganizerGroupsPage } from '../pages/organizer/OrganizerGroupsPage.jsx';
 import { OrganizerGroupPage } from '../pages/organizer/OrganizerGroupPage.jsx';
 import { OrganizerMatchResultsPage } from '../pages/organizer/OrganizerMatchResultsPage.jsx';
@@ -31,13 +30,19 @@ import { PlayerGroupPage } from '../pages/player/PlayerGroupPage.jsx';
 import { TournamentHubPage } from '../pages/player/TournamentHubPage.jsx';
 import { MyTournamentsPage } from '../pages/player/MyTournamentsPage.jsx';
 
+function TournamentRoundsRedirect() {
+  const { tournamentId } = useParams();
+  return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds`} replace />;
+}
+
 export function AppContent() {
+
   const { serverError, retry } = useAuth();
   return (
     <>
       {serverError && (
         <div className="connection-error-banner" style={{ background: '#e74c3c', color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', fontWeight: 'bold', zIndex: 9999, position: 'sticky', top: 0 }}>
-          <span>⚠️ EVOQ is temporarily unable to reach the server. Please check your connection.</span>
+          <span>Server is temporarily unavailable. Please check your connection.</span>
           <button className="button secondary-button" style={{ minHeight: '28px', padding: '0 12px', fontSize: '12px', background: '#fff', color: '#e74c3c', border: 'none', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }} onClick={retry}>
             Retry
           </button>
@@ -66,7 +71,7 @@ export function AppContent() {
           <Route path="tournaments" element={<OrganizerTournamentsPage />} />
           <Route path="tournaments/:tournamentId" element={<OrganizerTournamentPage />} />
           <Route path="tournaments/:tournamentId/registrations" element={<OrganizerRegistrationsPage />} />
-          <Route path="tournaments/:tournamentId/rounds" element={<OrganizerRoundsPage />} />
+          <Route path="tournaments/:tournamentId/rounds" element={<TournamentRoundsRedirect />} />
           <Route path="tournaments/:tournamentId/rounds/:roundId/groups" element={<OrganizerGroupsPage />} />
           <Route path="tournaments/:tournamentId/groups/:groupId" element={<OrganizerGroupPage />} />
           <Route path="tournaments/:tournamentId/matches/:matchId" element={<OrganizerMatchResultsPage />} />

@@ -46,3 +46,34 @@ export function validateMatchPatch(body) {
   if (body.scheduledAt !== undefined && body.scheduledAt !== null && Number.isNaN(Date.parse(body.scheduledAt))) errors.scheduledAt = 'scheduledAt must be a valid date';
   return errors;
 }
+export function validateAutoAssign(body) {
+  const errors = {};
+  if (body.groupCount !== undefined && !positiveInteger(body.groupCount)) errors.groupCount = 'groupCount must be a positive integer';
+  if (body.targetGroupSize !== undefined && !positiveInteger(body.targetGroupSize)) errors.targetGroupSize = 'targetGroupSize must be a positive integer';
+  if (body.mode !== undefined && !['BY_GROUPS', 'BY_SIZE'].includes(body.mode)) errors.mode = 'mode must be BY_GROUPS or BY_SIZE';
+  return errors;
+}
+
+export function validateBulkMove(body) {
+  const errors = {};
+  if (!Array.isArray(body.teamIds) || body.teamIds.length === 0) errors.teamIds = 'teamIds must be a non-empty array';
+  else if (body.teamIds.some((id) => !positiveInteger(id))) errors.teamIds = 'All team IDs must be positive integers';
+  if (!positiveInteger(body.targetGroupId)) errors.targetGroupId = 'targetGroupId must be a positive integer';
+  return errors;
+}
+
+export function validateNextRoundCreate(body) {
+  const errors = {};
+  if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim().length < 2 || body.name.trim().length > 120)) errors.name = 'name must be 2 to 120 characters';
+  if (body.groupCount !== undefined && !positiveInteger(body.groupCount)) errors.groupCount = 'groupCount must be a positive integer';
+  if (body.targetGroupSize !== undefined && !positiveInteger(body.targetGroupSize)) errors.targetGroupSize = 'targetGroupSize must be a positive integer';
+  return errors;
+}
+
+export function validateQualificationFinalize(body) {
+  const errors = {};
+  if (!Array.isArray(body.selections) || body.selections.length === 0) {
+    errors.selections = 'selections must be a non-empty array of qualifying teams';
+  }
+  return errors;
+}

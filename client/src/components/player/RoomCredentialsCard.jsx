@@ -17,7 +17,6 @@ export function RoomCredentialsCard({ roomId, roomPassword, lobbyStatus }) {
     <div className="room-credentials-card">
       <div className="room-card-header">
         <div className="room-title-strip">
-          <span className="room-icon">🔑</span>
           <h3 className="room-heading">Lobby & Room Credentials</h3>
         </div>
         <span className={`status-badge ${isRoomConfigured ? 'live' : 'draft'}`}>

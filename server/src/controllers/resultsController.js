@@ -12,3 +12,6 @@ export const roundLeaderboard = asyncHandler(async (req, res) => res.json({ lead
 export const qualifications = asyncHandler(async (req, res) => res.json({ qualifications: await service.getQualifications(Number(req.params.roundId), req.user.id) }));
 export const selectQualification = asyncHandler(async (req, res) => res.status(201).json({ qualifications: await service.selectQualification(Number(req.params.roundId), req.body, req.user.id) }));
 export const removeQualification = asyncHandler(async (req, res) => res.json({ qualifications: await service.removeQualification(Number(req.params.roundId), Number(req.params.teamId), req.user.id) }));
+export const qualificationCenter = asyncHandler(async (req, res) => res.json(await service.getQualificationCenterData(Number(req.params.roundId), req.user.id)));
+export const finalizeQualifications = asyncHandler(async (req, res) => res.json({ qualifications: await service.finalizeQualifications(Number(req.params.roundId), req.body, req.user.id) }));
+export const reopenQualifications = asyncHandler(async (req, res) => res.json({ qualifications: await service.reopenQualifications(Number(req.params.roundId), req.user.id) }));

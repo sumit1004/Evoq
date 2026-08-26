@@ -7,7 +7,7 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "build": "node --check src/index.js",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "lint": "eslint .",
     "db:migrate": "node scripts/migrate.js",
     "db:rollback": "node scripts/rollback.js"

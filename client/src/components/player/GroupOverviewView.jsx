@@ -1,6 +1,6 @@
 import { RoomCredentialsCard } from './RoomCredentialsCard.jsx';
 
-export function GroupOverviewView({ group, playerTeam, onNavigate }) {
+export function GroupOverviewView({ group, playerTeam }) {
   if (!group) return null;
 
   return (
@@ -10,48 +10,6 @@ export function GroupOverviewView({ group, playerTeam, onNavigate }) {
         roomId={group.roomId}
         roomPassword={group.roomPassword}
       />
-
-      {/* Quick Navigation Cards */}
-      <div className="group-quick-links">
-        <button
-          className="group-quick-card"
-          type="button"
-          onClick={() => onNavigate('matches')}
-        >
-          <span className="quick-icon">🎮</span>
-          <div>
-            <strong>Group Matches</strong>
-            <span>View match cards and live scores</span>
-          </div>
-          <span className="arrow-icon">→</span>
-        </button>
-
-        <button
-          className="group-quick-card"
-          type="button"
-          onClick={() => onNavigate('leaderboard')}
-        >
-          <span className="quick-icon">🏆</span>
-          <div>
-            <strong>Group Standings</strong>
-            <span>Check points and kill leaderboards</span>
-          </div>
-          <span className="arrow-icon">→</span>
-        </button>
-
-        <button
-          className="group-quick-card"
-          type="button"
-          onClick={() => onNavigate('chat')}
-        >
-          <span className="quick-icon">💬</span>
-          <div>
-            <strong>Group Team Chat</strong>
-            <span>Coordinate with group members</span>
-          </div>
-          <span className="arrow-icon">→</span>
-        </button>
-      </div>
 
       {/* Assigned Teams Section */}
       <div className="assigned-teams-panel">
@@ -90,3 +48,4 @@ export function GroupOverviewView({ group, playerTeam, onNavigate }) {
     </div>
   );
 }
+

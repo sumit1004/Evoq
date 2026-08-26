@@ -21,3 +21,7 @@ export const getMatch = asyncHandler(async (req, res) => res.json({ match: await
 export const createMatch = asyncHandler(async (req, res) => res.status(201).json({ match: await service.createGroupMatch(Number(req.params.groupId), req.body, req.user.id) }));
 export const updateMatch = asyncHandler(async (req, res) => res.json({ match: await service.updateGroupMatch(Number(req.params.matchId), req.body, req.user.id) }));
 export const completeMatch = asyncHandler(async (req, res) => res.json({ match: await service.completeMatch(Number(req.params.matchId), req.user.id) }));
+export const autoAssign = asyncHandler(async (req, res) => res.json(await service.autoAssignRoundGroups(Number(req.params.roundId), req.body, req.user.id)));
+export const bulkMove = asyncHandler(async (req, res) => res.json(await service.bulkMoveRoundTeams(Number(req.params.roundId), req.body, req.user.id)));
+export const lockAssignment = asyncHandler(async (req, res) => res.json({ round: await service.lockRoundAssignment(Number(req.params.roundId), req.user.id) }));
+export const createNextRound = asyncHandler(async (req, res) => res.status(201).json(await service.createNextTournamentRound(Number(req.params.tournamentId), req.body, req.user.id)));

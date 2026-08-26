@@ -17,7 +17,7 @@ export function CurrentMatchCard({ match, activeGroup, onOpenMatchDetails }) {
     <div className={`current-match-card ${isLive ? 'is-live-match' : ''}`}>
       <div className="current-match-header">
         <div className="current-match-kicker">
-          {isLive ? '🔴 LIVE MATCH IN PROGRESS' : 'NEXT SCHEDULED MATCH'}
+          {isLive ? 'LIVE MATCH IN PROGRESS' : 'NEXT SCHEDULED MATCH'}
         </div>
         {match && (
           <span className={`status-badge ${match.status.toLowerCase()}`}>
@@ -49,7 +49,7 @@ export function CurrentMatchCard({ match, activeGroup, onOpenMatchDetails }) {
                     type="button"
                     onClick={() => handleCopy(activeGroup.roomId, 'roomId')}
                   >
-                    {copiedField === 'roomId' ? '✓' : 'Copy'}
+                    {copiedField === 'roomId' ? 'Copied' : 'Copy'}
                   </button>
                 )}
               </div>
@@ -62,7 +62,7 @@ export function CurrentMatchCard({ match, activeGroup, onOpenMatchDetails }) {
                     type="button"
                     onClick={() => handleCopy(activeGroup.roomPassword, 'roomPass')}
                   >
-                    {copiedField === 'roomPass' ? '✓' : 'Copy'}
+                    {copiedField === 'roomPass' ? 'Copied' : 'Copy'}
                   </button>
                 )}
               </div>
@@ -75,7 +75,7 @@ export function CurrentMatchCard({ match, activeGroup, onOpenMatchDetails }) {
               type="button"
               onClick={onOpenMatchDetails}
             >
-              Open Match Details →
+              Open Match Details
             </button>
           </div>
         </div>

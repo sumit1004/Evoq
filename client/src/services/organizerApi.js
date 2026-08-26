@@ -1,6 +1,11 @@
-import { apiClient } from './apiClient.js';
+import { apiClient, normalizeApiError } from './apiClient.js';
 
 export async function fetchOrganizerDashboard() {
-  const { data } = await apiClient.get('/organizer/dashboard');
-  return data.dashboard;
+  try {
+    const { data } = await apiClient.get('/organizer/dashboard');
+    return data.dashboard;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
+
