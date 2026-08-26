@@ -1,8 +1,9 @@
 import { errorResponses } from '../errors/AppError.js';
-import { createTournament, findTournament, listPrizes, listTournaments, updateTournament } from '../repositories/tournamentRepository.js';
+import { createTournament, deleteTournament as repoDeleteTournament, findTournament, listPrizes, listTournaments, updateTournament } from '../repositories/tournamentRepository.js';
 import * as paymentRepo from '../repositories/paymentRepository.js';
 import path from 'node:path';
 import { config } from '../config/env.js';
+import { emitRealtime, realtimeRooms } from '../utils/realtimeHub.js';
 
 const transitions = { DRAFT: 'REGISTRATION_OPEN', REGISTRATION_OPEN: 'REGISTRATION_CLOSED', REGISTRATION_CLOSED: 'LIVE' };
 
@@ -117,5 +118,17 @@ export async function getTournamentQrFile(tournamentId) {
     throw errorResponses.notFound('Payment QR code not found');
   }
   return path.resolve(config.uploadDirectory, 'payment-qrs', path.basename(tournament.payment_qr_path));
+}
+
+export async function deleteTournament(tournamentId, userId, role) {
+  const current = await findTournament(tournamentId);
+  if (!current) throw errorResponses.notFound('Tournament not found');
+  if (role !== 'ADMIN' && current.organizer_id !== userId) {
+    throw errorResponses.forbidden('You are not authorized to delete this tournament');
+  }
+
+  await repoDeleteTournament(tournamentId);
+  emitRealtime(realtimeRooms.tournament(tournamentId), 'tournament_deleted', { tournamentId: Number(tournamentId) });
+  return { success: true, tournamentId: Number(tournamentId) };
 }
 

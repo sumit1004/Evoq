@@ -1,5 +1,5 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { createOrganizerTournament, getTournament, getTournamentQrFile, listAvailableTournaments, listOrganizerTournaments, updateOrganizerTournament } from '../services/tournamentService.js';
+import { createOrganizerTournament, deleteTournament, getTournament, getTournamentQrFile, listAvailableTournaments, listOrganizerTournaments, updateOrganizerTournament } from '../services/tournamentService.js';
 import {
   buildTournamentRegistrationWorkbook,
   exportTournamentRegistrations,
@@ -62,6 +62,10 @@ export const updateTournamentController = asyncHandler(async (req, res) => {
     body.paymentQrPath = req.file.filename;
   }
   res.status(200).json({ tournament: await updateOrganizerTournament(Number(req.params.tournamentId), body, req.user.id) });
+});
+
+export const deleteTournamentController = asyncHandler(async (req, res) => {
+  res.status(200).json(await deleteTournament(Number(req.params.tournamentId), req.user.id, req.user.role));
 });
 
 export const listRegistrationsController = asyncHandler(async (req, res) => {

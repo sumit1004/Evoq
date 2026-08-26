@@ -5,6 +5,7 @@ export const getRound = (id) => (id ? request(() => apiClient.get(`/rounds/${id}
 export const createRound = (id, input) => request(() => apiClient.post(`/tournaments/${id}/rounds`, input));
 export const updateRound = (id, input) => request(() => apiClient.patch(`/rounds/${id}`, input));
 export const completeRound = (id) => request(() => apiClient.post(`/rounds/${id}/complete`));
+export const deleteRound = (id) => request(() => apiClient.delete(`/rounds/${id}`));
 export const fetchGroups = (id) => (id ? request(() => apiClient.get(`/rounds/${id}/groups`)) : Promise.resolve({ groups: [] }));
 export const fetchTournamentGroups = (id) => (id ? request(() => apiClient.get(`/tournaments/${id}/groups`)) : Promise.resolve({ groups: [] }));
 export const fetchEligibleTeams = (id) => (id ? request(() => apiClient.get(`/rounds/${id}/eligible-teams`)) : Promise.resolve({ teams: [] }));

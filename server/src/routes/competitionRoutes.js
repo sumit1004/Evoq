@@ -29,6 +29,7 @@ competitionRouter.post('/tournaments/:tournamentId/rounds/next', ...organizer, v
 competitionRouter.get('/rounds/:roundId', ...organizer, validateRequest({ params: validateRoundId }), controller.getRound);
 competitionRouter.patch('/rounds/:roundId', ...organizer, validateRequest({ params: validateRoundId, body: (body) => body.status ? {} : { status: 'status is required' } }), controller.updateRoundStatus);
 competitionRouter.post('/rounds/:roundId/complete', ...organizer, validateRequest({ params: validateRoundId }), controller.completeRound);
+competitionRouter.delete('/rounds/:roundId', ...organizer, validateRequest({ params: validateRoundId }), controller.deleteRound);
 
 competitionRouter.get('/rounds/:roundId/groups', ...organizer, validateRequest({ params: validateRoundId }), controller.listGroups);
 competitionRouter.get('/tournaments/:tournamentId/groups', ...authenticated, validateRequest({ params: validateTournamentRoundId }), controller.listPlayerTournamentGroups);

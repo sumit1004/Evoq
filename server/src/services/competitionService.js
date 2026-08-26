@@ -512,6 +512,28 @@ export async function deleteRoundGroup(groupId, organizerId) {
   return { success: true, groupId: Number(groupId) };
 }
 
+export async function deleteTournamentRound(roundId, organizerId) {
+  const context = await repository.getRoundContext(roundId);
+  owner(context, organizerId);
+  if (context.tournament_status === 'COMPLETED') {
+    throw errorResponses.conflict('Completed tournaments are read-only');
+  }
+  const resultCount = await repository.countRoundResults(roundId);
+  if (resultCount > 0) {
+    throw errorResponses.conflict('Round contains recorded match results and cannot be deleted.');
+  }
+  const qualCount = await repository.countRoundQualifications(roundId);
+  if (qualCount > 0) {
+    throw errorResponses.conflict('Round has finalized qualifications and cannot be deleted.');
+  }
+  await repository.deleteRound(roundId);
+  emitRealtime(realtimeRooms.tournament(context.tournament_id), 'round_deleted', {
+    roundId: Number(roundId),
+    tournamentId: context.tournament_id,
+  });
+  return { success: true, roundId: Number(roundId) };
+}
+
 export async function notifyMatchSchedule(matchId, organizerId) {
   const context = await repository.getMatchContext(matchId);
   owner(context, organizerId);

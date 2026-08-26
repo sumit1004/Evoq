@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { fetchTournament, updateTournament, fetchRegistrations } from '../../services/tournamentApi.js';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { fetchTournament, updateTournament, fetchRegistrations, deleteTournament } from '../../services/tournamentApi.js';
 import {
   fetchRounds,
   createRound,
@@ -16,10 +16,12 @@ import {
 } from '../../services/communicationApi.js';
 import { completeTournament } from '../../services/archiveApi.js';
 import { useSocket } from '../../context/SocketContext.jsx';
+import { OrganizerRoundsHub } from '../../components/organizer/OrganizerRoundsHub.jsx';
 
 const ORGANIZER_TABS = ['overview', 'rounds', 'registrations', 'leaderboard', 'announcements', 'settings'];
 
 export function OrganizerTournamentPage() {
+  const navigate = useNavigate();
   const { tournamentId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const { joinTournament, leaveTournament, on } = useSocket();
@@ -41,6 +43,7 @@ export function OrganizerTournamentPage() {
   const [roundGroups, setRoundGroups] = useState({});
   const [leaderboard, setLeaderboard] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Forms
   const [newRound, setNewRound] = useState({ roundNumber: 1, name: 'Round 1' });
@@ -198,6 +201,16 @@ export function OrganizerTournamentPage() {
     }
   };
 
+  const handleDeleteTournament = async () => {
+    setState((s) => ({ ...s, submitting: true, error: '', notice: '' }));
+    try {
+      await deleteTournament(tournamentId);
+      navigate('/organizer/tournaments');
+    } catch (error) {
+      setState((s) => ({ ...s, submitting: false, error: error.message }));
+    }
+  };
+
   // Stats calculation
   const verifiedCount = registrations.filter((r) => r.status === 'VERIFIED').length;
   const pendingCount = registrations.filter((r) => r.status === 'PENDING').length;
@@ -302,6 +315,14 @@ export function OrganizerTournamentPage() {
             <Link className="button ghost-button" to={`/organizer/tournaments/${tournamentId}/registrations`}>
               Registrations ({registrations.length})
             </Link>
+            <button
+              className="button ghost-button danger-text"
+              style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+            >
+              Delete Tournament
+            </button>
           </div>
         </div>
       </div>
@@ -409,9 +430,19 @@ export function OrganizerTournamentPage() {
                           {roundGroups[round.id]?.length || 0} Groups · Status: {round.status}
                         </span>
                       </div>
-                      <Link className="button secondary-button" style={{ minHeight: '30px', padding: '0 10px', fontSize: '12px' }} to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/groups`}>
-                        Groups
-                      </Link>
+                      <button
+                        className="button secondary-button"
+                        style={{ minHeight: '30px', padding: '0 10px', fontSize: '12px' }}
+                        onClick={() => {
+                          const next = new URLSearchParams(searchParams);
+                          next.set('tab', 'rounds');
+                          next.set('round', round.id);
+                          next.set('section', 'overview');
+                          setSearchParams(next);
+                        }}
+                      >
+                        Manage Round →
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -442,153 +473,13 @@ export function OrganizerTournamentPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: ROUNDS & GROUPS (PROGRESSION VIEW) */}
+      {/* TAB 2: ROUNDS & GROUPS (CANONICAL SINGLE-PAGE CONTROL CENTER) */}
       {/* ========================================================================= */}
       {activeTab === 'rounds' && (
-        <div>
-          {/* Create Round Bar */}
-          <form onSubmit={handleCreateRound} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '16px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '25px' }}>
-            <span style={{ fontWeight: 'bold', color: '#7dd3fc' }}>Add Competition Round:</span>
-            <input
-              type="number"
-              min="1"
-              style={{ width: '80px', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 8px' }}
-              value={newRound.roundNumber}
-              onChange={(e) => setNewRound({ roundNumber: e.target.value, name: `Round ${e.target.value}` })}
-              placeholder="Round #"
-              required
-            />
-            <input
-              style={{ flex: '1 1 200px', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 10px' }}
-              value={newRound.name}
-              onChange={(e) => setNewRound({ ...newRound, name: e.target.value })}
-              placeholder="Round Name (e.g. Round 1, Semi-Final, Final)"
-              required
-            />
-            <button className="button primary-button" type="submit" disabled={state.submitting}>
-              + Create Round
-            </button>
-          </form>
-
-          {/* Progression Tree / Visual Progression */}
-          {rounds.length === 0 ? (
-            <p className="empty-state">No rounds configured yet. Create Round 1 to start competition setup.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-              {rounds.map((round) => {
-                const groups = roundGroups[round.id] || [];
-
-                return (
-                  <div
-                    key={round.id}
-                    style={{
-                      background: 'rgba(255,255,255,0.02)',
-                      border: round.status === 'IN_PROGRESS' ? '1px solid rgba(125,211,252,0.3)' : '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '8px',
-                      padding: '20px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <h3 style={{ margin: 0, fontSize: '20px', color: '#fff' }}>{round.name}</h3>
-                          <span className={`status-badge ${round.status.toLowerCase().replaceAll('_', '-')}`}>
-                            {round.status.replaceAll('_', ' ')}
-                          </span>
-                        </div>
-                        <span style={{ fontSize: '13px', color: '#91a0b3' }}>
-                          Round #{round.roundNumber} · {groups.length} Groups Configured
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <Link
-                          className="button primary-button"
-                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
-                          to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}`}
-                        >
-                          Round Control Center
-                        </Link>
-                        <Link
-                          className="button secondary-button"
-                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
-                          to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/groups`}
-                        >
-                          Configure Groups
-                        </Link>
-                        <Link
-                          className="button ghost-button"
-                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
-                          to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/qualifications`}
-                        >
-                          Qualifications
-                        </Link>
-                      </div>
-                    </div>
-
-                    {/* Groups Grid inside this Round */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                      {groups.map((group) => (
-                        <div
-                          key={group.id}
-                          style={{
-                            background: 'rgba(255,255,255,0.02)',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: '6px',
-                            padding: '14px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between'
-                          }}
-                        >
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <strong style={{ color: '#fff', fontSize: '16px' }}>{group.name}</strong>
-                              <span className={`status-badge ${group.status.toLowerCase()}`} style={{ fontSize: '10px' }}>
-                                {group.status}
-                              </span>
-                            </div>
-                            <span style={{ fontSize: '12px', color: '#91a0b3', display: 'block' }}>
-                              {group.teams?.length || 0} Teams · Room: {group.roomId ? 'Ready' : 'Not set'}
-                            </span>
-                            <span style={{ fontSize: '12px', color: '#7dd3fc', display: 'block', marginTop: '2px' }}>
-                              {group.matches?.length || 0} Matches
-                            </span>
-                          </div>
-
-                          <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                            <Link
-                              className="button primary-button"
-                              style={{ minHeight: '30px', padding: '0 10px', fontSize: '12px' }}
-                              to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/groups/${group.id}`}
-                            >
-                              Open Workspace →
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Add Group inline Form for this round */}
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        createGroup(round.id, { name: `Group ${String.fromCharCode(65 + groups.length)}`, groupSize: 12 }).then((res) => {
-                          setRoundGroups((prev) => ({ ...prev, [round.id]: [...(prev[round.id] || []), res.group] }));
-                        });
-                      }}
-                      style={{ marginTop: '15px', display: 'flex', justifyContent: 'flex-end' }}
-                    >
-                      <button className="button ghost-button" style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }} type="submit">
-                        + Add Group {String.fromCharCode(65 + groups.length)} to {round.name}
-                      </button>
-                    </form>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <OrganizerRoundsHub
+          tournamentId={tournamentId}
+          tournamentStatus={tournament?.status}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -710,7 +601,7 @@ export function OrganizerTournamentPage() {
             <div className="detail-panel"><strong>Entry Fee</strong><span>₹{tournament.entryFee || 0}</span></div>
           </div>
 
-          <div style={{ paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', marginBottom: '25px' }}>
             <h4 style={{ color: '#ff6b6b', margin: '0 0 8px 0' }}>Finalize and Archive Tournament</h4>
             <p style={{ color: '#91a0b3', fontSize: '13px', margin: '0 0 15px 0' }}>
               Finalizing marks the tournament as COMPLETED and preserves all historical leaderboards, match stats, and certificates while making live controls read-only.
@@ -723,6 +614,97 @@ export function OrganizerTournamentPage() {
             >
               {tournament.status === 'COMPLETED' ? 'Tournament is Archived' : 'Complete & Archive Tournament'}
             </button>
+          </div>
+
+          <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '20px' }}>
+            <h4 style={{ color: '#ef4444', margin: '0 0 8px 0', fontSize: '16px' }}>Delete Tournament</h4>
+            <p style={{ color: '#cdd6e2', fontSize: '13px', margin: '0 0 15px 0', lineHeight: 1.5 }}>
+              Permanently delete this tournament, along with its rounds, groups, matches, announcements, and registrations. This action cannot be undone.
+            </p>
+            <button
+              className="button danger-button"
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+            >
+              Delete This Tournament
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Tournament Modal */}
+      {showDeleteModal && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1300,
+            padding: '20px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowDeleteModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#1c2128',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              borderRadius: '12px',
+              padding: '28px',
+              width: 'min(480px, 100%)',
+              boxShadow: '0 16px 48px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <span style={{ fontSize: '24px' }}>⚠️</span>
+              <h3 style={{ margin: 0, color: '#ef4444', fontSize: '20px' }}>Delete Tournament</h3>
+            </div>
+
+            <p style={{ color: '#cdd6e2', fontSize: '14px', lineHeight: 1.5, marginBottom: '16px' }}>
+              Are you sure you want to permanently delete <strong>"{tournament.name}"</strong>?
+            </p>
+
+            <div
+              style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '8px',
+                padding: '14px',
+                fontSize: '13px',
+                color: '#fca5a5',
+                lineHeight: 1.5,
+                marginBottom: '20px',
+              }}
+            >
+              <strong>Warning:</strong> This will permanently delete all {rounds.length} rounds, groups, scheduled matches, and {registrations.length} team registrations. This action cannot be reversed.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                className="button ghost-button"
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="button danger-button"
+                type="button"
+                onClick={handleDeleteTournament}
+                disabled={state.submitting}
+                style={{ minWidth: '140px' }}
+              >
+                {state.submitting ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

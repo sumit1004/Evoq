@@ -31,6 +31,7 @@ export async function updateTournament(id, input) {
   }
   return request(() => apiClient.patch(`/tournaments/${id}`, input));
 }
+export const deleteTournament = (id) => request(() => apiClient.delete(`/tournaments/${id}`));
 export const reviewRegistration = (id, input) => request(() => apiClient.patch(`/registrations/${id}`, input));
 export async function downloadRegistrationWorkbook(tournamentId) { try { return (await apiClient.get(`/tournaments/${tournamentId}/registrations/export.xlsx`, { responseType: 'blob' })).data; } catch (error) { throw normalizeApiError(error); } }
 

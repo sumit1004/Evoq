@@ -185,3 +185,20 @@ export async function findTournamentForUpdate(tournamentId, connection = pool) {
   );
   return rows[0] || null;
 }
+
+export async function deleteTournament(tournamentId) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    // Delete payments
+    await connection.query('DELETE FROM payments WHERE tournament_id = ?', [tournamentId]);
+    // Delete tournament record (cascades to rounds, groups, group_teams, matches, registrations, prizes, announcements, archives)
+    await connection.query('DELETE FROM tournaments WHERE id = ?', [tournamentId]);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}

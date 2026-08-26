@@ -67,7 +67,7 @@ export function PlayerTournamentHeader({
               {connected ? '● LIVE REALTIME' : '○ OFFLINE'}
             </span>
             <span className="hero-meta-detail">
-              Format: <strong>{tournament.playersPerTeam}v{tournament.playersPerTeam}</strong> · <strong>{tournament.maxTeams} Max Teams</strong>
+              <strong>{tournament.maxTeams} Max Teams</strong>
             </span>
             <span className="hero-entry-detail">
               Entry: {tournament.entryType === 'PAID' ? `₹${tournament.entryFee}` : 'Free Entry'}

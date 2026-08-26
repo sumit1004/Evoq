@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createRegistrationController,
   createTournamentController,
+  deleteTournamentController,
   exportRegistrationsController,
   exportRegistrationsWorkbookController,
   getPaymentEvidenceController,
@@ -28,6 +29,7 @@ tournamentRouter.get('/', optionalAuthentication, listTournaments);
 tournamentRouter.post('/', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), uploadPaymentQr, validateRequest({ body: validateTournamentCreate }), createTournamentController);
 tournamentRouter.get('/:tournamentId', optionalAuthentication, validateRequest({ params: validateTournamentId }), getTournamentController);
 tournamentRouter.patch('/:tournamentId', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), uploadPaymentQr, validateRequest({ params: validateTournamentId, body: validateTournamentPatch }), updateTournamentController);
+tournamentRouter.delete('/:tournamentId', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), validateRequest({ params: validateTournamentId }), deleteTournamentController);
 tournamentRouter.get('/:tournamentId/registrations', authenticateRequest, requireRoles('PLAYER', 'ORGANIZER'), validateRequest({ params: validateTournamentId }), listRegistrationsController);
 tournamentRouter.post('/:tournamentId/registrations', authenticateRequest, requireRoles('PLAYER'), uploadPaymentEvidence, validateRequest({ params: validateTournamentId, body: validateRegistrationCreate }), createRegistrationController);
 tournamentRouter.get('/:tournamentId/registrations/export', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), validateRequest({ params: validateTournamentId }), exportRegistrationsController);

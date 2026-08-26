@@ -6,6 +6,7 @@ vi.mock('../repositories/competitionRepository.js', () => ({
   assignTeam: vi.fn(), removeTeam: vi.fn(), listMatches: vi.fn(), findMatch: vi.fn(), createMatch: vi.fn(), updateMatch: vi.fn(), isPlayerAssignedToGroup: vi.fn(), listEligibleTeams: vi.fn(),
   generateRoundGroupsAndAssignments: vi.fn(), bulkMoveTeams: vi.fn(), lockRoundAssignment: vi.fn(), getRoundAffectedPlayers: vi.fn(),
   countMatchResults: vi.fn(), deleteMatch: vi.fn(), countGroupResults: vi.fn(), countGroupQualifications: vi.fn(), deleteGroup: vi.fn(), getRoundStats: vi.fn(), getMatchAffectedPlayers: vi.fn(),
+  countRoundResults: vi.fn(), countRoundQualifications: vi.fn(), deleteRound: vi.fn(),
 }));
 
 vi.mock('../repositories/resultsRepository.js', () => ({
@@ -43,6 +44,7 @@ import {
   createNextTournamentRound,
   deleteGroupMatch,
   deleteRoundGroup,
+  deleteTournamentRound,
   lockRoundAssignment,
   notifyMatchSchedule,
   updateRoundStatus,
@@ -216,15 +218,33 @@ describe('match deletion & group deletion & notifications', () => {
     await expect(deleteRoundGroup(2, 8)).rejects.toMatchObject({ status: 409 });
   });
 
-  it('successfully deletes group when safe', async () => {
-    repository.getGroupContext.mockResolvedValue({ id: 2, organizer_id: 8, round_id: 1, tournament_id: 5, tournament_status: 'LIVE' });
-    repository.countGroupResults.mockResolvedValue(0);
-    repository.countGroupQualifications.mockResolvedValue(0);
-    repository.deleteGroup.mockResolvedValue();
+  it('rejects round deletion if tournament is completed', async () => {
+    repository.getRoundContext.mockResolvedValue({ id: 1, organizer_id: 8, tournament_status: 'COMPLETED' });
+    await expect(deleteTournamentRound(1, 8)).rejects.toMatchObject({ status: 409 });
+  });
 
-    const res = await deleteRoundGroup(2, 8);
+  it('rejects round deletion if recorded match results exist', async () => {
+    repository.getRoundContext.mockResolvedValue({ id: 1, organizer_id: 8, tournament_status: 'LIVE' });
+    repository.countRoundResults.mockResolvedValue(4);
+    await expect(deleteTournamentRound(1, 8)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects round deletion if qualifications are finalized', async () => {
+    repository.getRoundContext.mockResolvedValue({ id: 1, organizer_id: 8, tournament_status: 'LIVE' });
+    repository.countRoundResults.mockResolvedValue(0);
+    repository.countRoundQualifications.mockResolvedValue(6);
+    await expect(deleteTournamentRound(1, 8)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('successfully deletes round when safe', async () => {
+    repository.getRoundContext.mockResolvedValue({ id: 1, organizer_id: 8, tournament_id: 5, tournament_status: 'LIVE' });
+    repository.countRoundResults.mockResolvedValue(0);
+    repository.countRoundQualifications.mockResolvedValue(0);
+    repository.deleteRound.mockResolvedValue();
+
+    const res = await deleteTournamentRound(1, 8);
     expect(res.success).toBe(true);
-    expect(repository.deleteGroup).toHaveBeenCalledWith(2);
+    expect(repository.deleteRound).toHaveBeenCalledWith(1);
   });
 });
 

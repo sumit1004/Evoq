@@ -7,6 +7,7 @@ export const getRound = asyncHandler(async (req, res) => res.json({ round: await
 export const createRound = asyncHandler(async (req, res) => res.status(201).json({ round: await service.createTournamentRound(Number(req.params.tournamentId), req.body, req.user.id) }));
 export const updateRoundStatus = asyncHandler(async (req, res) => { const round = await service.updateRoundStatus(Number(req.params.roundId), req.body.status, req.user.id); emitRealtime(`round_${round.id}`, 'round_status', round); res.json({ round }); });
 export const completeRound = asyncHandler(async (req, res) => res.json({ round: await service.completeRound(Number(req.params.roundId), req.user.id) }));
+export const deleteRound = asyncHandler(async (req, res) => res.json(await service.deleteTournamentRound(Number(req.params.roundId), req.user.id)));
 export const listGroups = asyncHandler(async (req, res) => res.json({ groups: await service.listRoundGroups(Number(req.params.roundId), req.user.id) }));
 export const listPlayerTournamentGroups = asyncHandler(async (req, res) => res.json({ groups: await service.listPlayerTournamentGroups(Number(req.params.tournamentId), req.user.id) }));
 export const listEligibleTeams = asyncHandler(async (req, res) => res.json({ teams: await service.listEligibleRoundTeams(Number(req.params.roundId), req.user.id) }));

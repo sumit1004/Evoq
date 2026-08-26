@@ -422,6 +422,23 @@ export async function countGroupQualifications(groupId) {
   return Number(rows[0]?.count || 0);
 }
 
+export async function countRoundResults(roundId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS count 
+     FROM match_results mr 
+     JOIN matches m ON m.id = mr.match_id 
+     JOIN \`groups\` g ON g.id = m.group_id 
+     WHERE g.round_id = ?`,
+    [roundId]
+  );
+  return Number(rows[0]?.count || 0);
+}
+
+export async function countRoundQualifications(roundId) {
+  const [rows] = await pool.query('SELECT COUNT(*) AS count FROM qualifications WHERE round_id = ?', [roundId]);
+  return Number(rows[0]?.count || 0);
+}
+
 export async function deleteGroup(groupId) {
   const connection = await pool.getConnection();
   try {
@@ -434,6 +451,46 @@ export async function deleteGroup(groupId) {
     await connection.query('DELETE FROM matches WHERE group_id = ?', [groupId]);
     // Delete group record
     await connection.query('DELETE FROM `groups` WHERE id = ?', [groupId]);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function deleteRound(roundId) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    // Delete group_teams assignments in this round (preserves underlying teams)
+    await connection.query(
+      `DELETE gt FROM group_teams gt 
+       JOIN \`groups\` g ON g.id = gt.group_id 
+       WHERE g.round_id = ?`,
+      [roundId]
+    );
+    // Delete chat messages in this round
+    await connection.query(
+      `DELETE cm FROM chat_messages cm 
+       JOIN \`groups\` g ON g.id = cm.group_id 
+       WHERE g.round_id = ?`,
+      [roundId]
+    );
+    // Delete matches in this round
+    await connection.query(
+      `DELETE m FROM matches m 
+       JOIN \`groups\` g ON g.id = m.group_id 
+       WHERE g.round_id = ?`,
+      [roundId]
+    );
+    // Delete qualifications in this round
+    await connection.query('DELETE FROM qualifications WHERE round_id = ?', [roundId]);
+    // Delete groups in this round
+    await connection.query('DELETE FROM `groups` WHERE round_id = ?', [roundId]);
+    // Delete the round record
+    await connection.query('DELETE FROM rounds WHERE id = ?', [roundId]);
     await connection.commit();
   } catch (error) {
     await connection.rollback();
