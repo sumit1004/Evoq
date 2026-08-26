@@ -8,18 +8,14 @@ export function getPlayerNavigation() {
   ];
 }
 
-export function getOrganizerNavigation({ tournamentId, roundId, matchId, groupId } = {}) {
+export function getOrganizerNavigation({ tournamentId } = {}) {
   return [
     { label: 'Overview', to: '/organizer', active: (path) => path === '/organizer' },
     { label: 'Tournaments', to: '/organizer/tournaments', active: (path) => path.startsWith('/organizer/tournaments') || path === '/tournaments' || path.startsWith('/tournaments/') },
     ...(tournamentId ? [
       { label: 'Tournament Hub', to: `/organizer/tournaments/${tournamentId}`, active: (path) => path === `/organizer/tournaments/${tournamentId}` },
       { label: 'Registrations', to: `/organizer/tournaments/${tournamentId}/registrations`, active: (path) => path.includes('/registrations') },
-      { label: 'Rounds & Groups', to: `/organizer/tournaments/${tournamentId}?tab=rounds`, active: (path) => path.includes('/rounds') || path.includes('/groups') },
-      ...(roundId ? [{ label: 'Qualifications', to: `/organizer/tournaments/${tournamentId}/rounds/${roundId}/qualifications`, active: (path) => path.includes('/qualifications') }] : []),
-      ...(matchId ? [{ label: 'Match results', to: `/organizer/tournaments/${tournamentId}/matches/${matchId}`, active: (path) => path.includes('/matches/') }] : []),
       { label: 'Announcements', to: `/organizer/tournaments/${tournamentId}/announcements`, active: (path) => path.includes('/announcements') },
-      ...(groupId ? [{ label: 'Group chat', to: `/organizer/tournaments/${tournamentId}/groups/${groupId}/chat`, active: (path) => path.includes('/chat') }] : []),
       { label: 'Complete tournament', to: `/organizer/tournaments/${tournamentId}/complete`, active: (path) => path.includes('/complete') },
     ] : []),
     { label: 'Notifications', notification: true },

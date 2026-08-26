@@ -133,10 +133,24 @@ export function OrganizerGroupsPage() {
   return (
     <section className="workspace-page">
       <div className="workspace-nav-bar">
-        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}?tab=rounds`}>
-          Back to tournament rounds
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#91a0b3' }}>
+          <Link className="text-link" to={`/organizer/tournaments/${tournamentId}?tab=rounds`}>
+            Tournament Rounds
+          </Link>
+          <span>/</span>
+          <Link className="text-link" to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}`}>
+            Round {round?.roundNumber || roundId} Control Center
+          </Link>
+          <span>/</span>
+          <span style={{ color: '#fff', fontWeight: 'bold' }}>Team Distribution</span>
+        </div>
         <div className="nav-actions">
+          <Link
+            className="button secondary-button"
+            to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}`}
+          >
+            Round Control Center
+          </Link>
           <Link
             className="button ghost-button"
             to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}/qualifications`}
@@ -151,7 +165,7 @@ export function OrganizerGroupsPage() {
           <div className="page-kicker">
             Round {round?.roundNumber || roundId} · {round?.status?.replaceAll('_', ' ') || 'Competition'}
           </div>
-          <h1>{round?.name || `Round ${roundId}`} Groups</h1>
+          <h1>{round?.name || `Round ${roundId}`} — Team Distribution</h1>
           <p>
             Configure balanced group distribution, preview assignments, adjust rosters, and lock
             groups before starting matches.

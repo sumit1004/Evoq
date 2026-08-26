@@ -15,6 +15,7 @@ import { OrganizerWorkspacePage } from '../pages/organizer/OrganizerWorkspacePag
 import { OrganizerOverviewPage } from '../pages/organizer/OrganizerOverviewPage.jsx';
 import { OrganizerTournamentPage } from '../pages/organizer/OrganizerTournamentPage.jsx';
 import { OrganizerTournamentsPage } from '../pages/organizer/OrganizerTournamentsPage.jsx';
+import { OrganizerRoundPage } from '../pages/organizer/OrganizerRoundPage.jsx';
 import { OrganizerGroupsPage } from '../pages/organizer/OrganizerGroupsPage.jsx';
 import { OrganizerGroupPage } from '../pages/organizer/OrganizerGroupPage.jsx';
 import { OrganizerMatchResultsPage } from '../pages/organizer/OrganizerMatchResultsPage.jsx';
@@ -72,8 +73,11 @@ export function AppContent() {
           <Route path="tournaments/:tournamentId" element={<OrganizerTournamentPage />} />
           <Route path="tournaments/:tournamentId/registrations" element={<OrganizerRegistrationsPage />} />
           <Route path="tournaments/:tournamentId/rounds" element={<TournamentRoundsRedirect />} />
+          <Route path="tournaments/:tournamentId/rounds/:roundId" element={<OrganizerRoundPage />} />
           <Route path="tournaments/:tournamentId/rounds/:roundId/groups" element={<OrganizerGroupsPage />} />
+          <Route path="tournaments/:tournamentId/rounds/:roundId/groups/:groupId" element={<OrganizerGroupPage />} />
           <Route path="tournaments/:tournamentId/groups/:groupId" element={<OrganizerGroupPage />} />
+          <Route path="tournaments/:tournamentId/rounds/:roundId/groups/:groupId/matches/:matchId" element={<OrganizerMatchResultsPage />} />
           <Route path="tournaments/:tournamentId/matches/:matchId" element={<OrganizerMatchResultsPage />} />
           <Route path="tournaments/:tournamentId/rounds/:roundId/qualifications" element={<OrganizerQualificationsPage />} />
           <Route path="tournaments/:tournamentId/complete" element={<OrganizerCompletionPage />} />

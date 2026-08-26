@@ -54,6 +54,9 @@ export const fetchGroupLeaderboard = (groupId) => (groupId ? request(() => apiCl
 export const completeGroup = (groupId) => request(() => apiClient.post(`/groups/${groupId}/complete`));
 export const removeGroupTeam = (groupId, teamId) => request(() => apiClient.delete(`/groups/${groupId}/teams/${teamId}`));
 export const fetchGroupMatches = (groupId) => (groupId ? request(() => apiClient.get(`/groups/${groupId}/matches`)) : Promise.resolve({ matches: [] }));
+export const deleteGroup = (groupId) => request(() => apiClient.delete(`/groups/${groupId}`));
+export const deleteMatch = (matchId) => request(() => apiClient.delete(`/matches/${matchId}`));
+export const notifyMatchSchedule = (matchId) => request(() => apiClient.post(`/matches/${matchId}/notify`));
 export const autoAssignGroups = (roundId, input) => request(() => apiClient.post(`/rounds/${roundId}/auto-assign`, input));
 export const bulkMoveTeams = (roundId, input) => request(() => apiClient.post(`/rounds/${roundId}/bulk-move`, input));
 export const lockRoundAssignment = (roundId) => request(() => apiClient.post(`/rounds/${roundId}/lock`));
@@ -61,4 +64,5 @@ export const createNextRound = (tournamentId, input) => request(() => apiClient.
 export const fetchQualificationCenter = (roundId) => (roundId ? request(() => apiClient.get(`/rounds/${roundId}/qualification-center`)) : Promise.resolve({ groups: [], qualifications: [] }));
 export const finalizeQualifications = (roundId, input) => request(() => apiClient.post(`/rounds/${roundId}/qualifications/finalize`, input));
 export const reopenQualifications = (roundId) => request(() => apiClient.post(`/rounds/${roundId}/qualifications/reopen`));
+
 

@@ -35,15 +35,20 @@ export function validateMatchCreate(body) {
   const errors = {};
   if (!positiveInteger(body.matchNumber)) errors.matchNumber = 'matchNumber must be a positive integer';
   if (!body.name || body.name.trim().length < 2 || body.name.trim().length > 120) errors.name = 'name must be 2 to 120 characters';
-  if (body.scheduledAt !== undefined && body.scheduledAt !== null && Number.isNaN(Date.parse(body.scheduledAt))) errors.scheduledAt = 'scheduledAt must be a valid date';
+  if (body.scheduledAt !== undefined && body.scheduledAt !== null && body.scheduledAt !== '' && Number.isNaN(Date.parse(body.scheduledAt))) errors.scheduledAt = 'scheduledAt must be a valid date';
+  if (body.checkInAt !== undefined && body.checkInAt !== null && body.checkInAt !== '' && Number.isNaN(Date.parse(body.checkInAt))) errors.checkInAt = 'checkInAt must be a valid date';
+  if (body.lobbyOpenAt !== undefined && body.lobbyOpenAt !== null && body.lobbyOpenAt !== '' && Number.isNaN(Date.parse(body.lobbyOpenAt))) errors.lobbyOpenAt = 'lobbyOpenAt must be a valid date';
   return errors;
 }
 
 export function validateMatchPatch(body) {
   const errors = {};
   if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim().length < 2 || body.name.trim().length > 120)) errors.name = 'name must be 2 to 120 characters';
+  if (body.matchNumber !== undefined && !positiveInteger(body.matchNumber)) errors.matchNumber = 'matchNumber must be a positive integer';
   if (body.status !== undefined && !['SCHEDULED', 'LIVE', 'COMPLETED'].includes(body.status)) errors.status = 'Invalid match status';
-  if (body.scheduledAt !== undefined && body.scheduledAt !== null && Number.isNaN(Date.parse(body.scheduledAt))) errors.scheduledAt = 'scheduledAt must be a valid date';
+  if (body.scheduledAt !== undefined && body.scheduledAt !== null && body.scheduledAt !== '' && Number.isNaN(Date.parse(body.scheduledAt))) errors.scheduledAt = 'scheduledAt must be a valid date';
+  if (body.checkInAt !== undefined && body.checkInAt !== null && body.checkInAt !== '' && Number.isNaN(Date.parse(body.checkInAt))) errors.checkInAt = 'checkInAt must be a valid date';
+  if (body.lobbyOpenAt !== undefined && body.lobbyOpenAt !== null && body.lobbyOpenAt !== '' && Number.isNaN(Date.parse(body.lobbyOpenAt))) errors.lobbyOpenAt = 'lobbyOpenAt must be a valid date';
   return errors;
 }
 export function validateAutoAssign(body) {

@@ -155,15 +155,117 @@ export function calculateBalancedDistribution(eligibleTeams, options = {}) {
   return { groupCount: groupConfigs.length, groups, groupConfigs, assignments };
 }
 
-function serializeMatch(row) { return row && { id: row.id, groupId: row.group_id, matchNumber: row.match_number, name: row.name, status: row.status, scheduledAt: row.scheduled_at, startedAt: row.started_at, completedAt: row.completed_at, createdAt: row.created_at, updatedAt: row.updated_at }; }
-function serializeGroup(row) { return row && { id: row.id, roundId: row.round_id, name: row.name, status: row.status, groupSize: row.group_size, roomId: row.room_id, roomPassword: row.room_password, startedAt: row.started_at, completedAt: row.completed_at, createdAt: row.created_at, updatedAt: row.updated_at, teams: (row.teams || []).map((team) => ({ id: team.id, name: team.name, assignedAt: team.assigned_at })), matches: (row.matches || []).map(serializeMatch) }; }
-function serializeRound(row) { return row && { id: row.id, tournamentId: row.tournament_id, roundNumber: row.round_number, name: row.name, status: row.status, assignmentStatus: row.assignment_status || 'DRAFT', isLocked: Boolean(row.is_locked), qualificationsFinalizedAt: row.qualifications_finalized_at || null, startedAt: row.started_at, completedAt: row.completed_at, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function serializeMatch(row) {
+  return row && {
+    id: row.id,
+    groupId: row.group_id,
+    matchNumber: row.match_number,
+    name: row.name,
+    status: row.status,
+    roomId: row.room_id || null,
+    roomPassword: row.room_password || null,
+    scheduledAt: row.scheduled_at || null,
+    checkInAt: row.check_in_at || null,
+    lobbyOpenAt: row.lobby_open_at || null,
+    instructions: row.instructions || null,
+    startedAt: row.started_at || null,
+    completedAt: row.completed_at || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
-export async function listTournamentRounds(tournamentId, organizerId) { const tournament = await repository.getTournamentContext(tournamentId); owner(tournament, organizerId); return (await repository.listRounds(tournamentId)).map(serializeRound); }
-export async function getRound(roundId, organizerId) { const context = await repository.getRoundContext(roundId); owner(context, organizerId); return serializeRound(await repository.findRound(roundId)); }
-export async function createTournamentRound(tournamentId, input, organizerId) { const tournament = await repository.getTournamentContext(tournamentId); owner(tournament, organizerId); liveTournament({ tournament_status: tournament.status }); const rounds = await repository.listRounds(tournamentId); const previous = rounds.at(-1); const expectedNumber = (previous?.round_number || 0) + 1; if (Number(input.roundNumber) !== expectedNumber) throw errorResponses.conflict(`The next round must be numbered ${expectedNumber}`); if (previous && previous.status !== 'COMPLETED') throw errorResponses.conflict('The previous round must be completed before creating the next round'); return serializeRound(await repository.createRound(tournamentId, input)); }
-export async function completeRound(roundId, organizerId) { const context = await repository.getRoundContext(roundId); owner(context, organizerId); transition(context.status, 'COMPLETED', roundTransitions, 'round'); if (await repository.countIncompleteGroups(roundId)) throw errorResponses.conflict('Every group must be completed before the round'); if (!(await countRoundQualifications(roundId))) throw errorResponses.conflict('At least one qualifying team must be selected before the round'); return serializeRound(await repository.updateRound(roundId, 'COMPLETED')); }
-export async function updateRoundStatus(roundId, status, organizerId) { const context = await repository.getRoundContext(roundId); owner(context, organizerId); liveTournament(context); transition(context.status, status, roundTransitions, 'round'); return serializeRound(await repository.updateRound(roundId, status)); }
+function serializeGroup(row) {
+  return row && {
+    id: row.id,
+    roundId: row.round_id,
+    name: row.name,
+    status: row.status,
+    groupSize: row.group_size,
+    roomId: row.room_id,
+    roomPassword: row.room_password,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    teams: (row.teams || []).map((team) => ({ id: team.id, name: team.name, assignedAt: team.assigned_at })),
+    matches: (row.matches || []).map(serializeMatch),
+  };
+}
+
+function serializeRound(row) {
+  return row && {
+    id: row.id,
+    tournamentId: row.tournament_id,
+    roundNumber: row.round_number,
+    name: row.name,
+    status: row.status,
+    assignmentStatus: row.assignment_status || 'DRAFT',
+    isLocked: Boolean(row.is_locked),
+    qualificationsFinalizedAt: row.qualifications_finalized_at || null,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function listTournamentRounds(tournamentId, organizerId) {
+  const tournament = await repository.getTournamentContext(tournamentId);
+  owner(tournament, organizerId);
+  const rounds = await repository.listRounds(tournamentId);
+  return Promise.all(
+    rounds.map(async (r) => {
+      const stats = await repository.getRoundStats(r.id);
+      return { ...serializeRound(r), stats };
+    })
+  );
+}
+
+export async function getRound(roundId, organizerId) {
+  const context = await repository.getRoundContext(roundId);
+  owner(context, organizerId);
+  const round = await repository.findRound(roundId);
+  const stats = await repository.getRoundStats(roundId);
+  const groups = await repository.listGroups(roundId);
+  return {
+    ...serializeRound(round),
+    stats,
+    tournamentName: context.tournament_name,
+    tournamentStatus: context.tournament_status,
+    groups: groups.map(serializeGroup),
+  };
+}
+
+export async function createTournamentRound(tournamentId, input, organizerId) {
+  const tournament = await repository.getTournamentContext(tournamentId);
+  owner(tournament, organizerId);
+  liveTournament({ tournament_status: tournament.status });
+  const rounds = await repository.listRounds(tournamentId);
+  const previous = rounds.at(-1);
+  const expectedNumber = (previous?.round_number || 0) + 1;
+  if (Number(input.roundNumber) !== expectedNumber) throw errorResponses.conflict(`The next round must be numbered ${expectedNumber}`);
+  if (previous && previous.status !== 'COMPLETED') throw errorResponses.conflict('The previous round must be completed before creating the next round');
+  return serializeRound(await repository.createRound(tournamentId, input));
+}
+
+export async function completeRound(roundId, organizerId) {
+  const context = await repository.getRoundContext(roundId);
+  owner(context, organizerId);
+  transition(context.status, 'COMPLETED', roundTransitions, 'round');
+  if (await repository.countIncompleteGroups(roundId)) throw errorResponses.conflict('Every group must be completed before the round');
+  if (!(await countRoundQualifications(roundId))) throw errorResponses.conflict('At least one qualifying team must be selected before the round');
+  return serializeRound(await repository.updateRound(roundId, 'COMPLETED'));
+}
+
+export async function updateRoundStatus(roundId, status, organizerId) {
+  const context = await repository.getRoundContext(roundId);
+  owner(context, organizerId);
+  liveTournament(context);
+  transition(context.status, status, roundTransitions, 'round');
+  return serializeRound(await repository.updateRound(roundId, status));
+}
+
 
 export async function listRoundGroups(roundId, organizerId) { const context = await repository.getRoundContext(roundId); owner(context, organizerId); return (await repository.listGroups(roundId)).map(serializeGroup); }
 export async function listPlayerTournamentGroups(tournamentId, userId) { const context = await repository.getTournamentContext(tournamentId); if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToTournament(tournamentId, userId)))) throw errorResponses.notFound('Tournament not found'); return (await repository.listPlayerTournamentGroups(tournamentId, userId)).map(serializeGroup); }
@@ -320,9 +422,141 @@ export async function createNextTournamentRound(tournamentId, input, organizerId
   };
 }
 
-export async function listGroupMatches(groupId, userId) { const context = await repository.getGroupContext(groupId); if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToGroup(groupId, userId)))) throw errorResponses.notFound('Group not found'); return (await repository.listMatches(groupId)).map(serializeMatch); }
-export async function getMatch(matchId, userId) { const context = await repository.getMatchContext(matchId); if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToGroup(context.group_id, userId)))) throw errorResponses.notFound('Match not found'); return serializeMatch(await repository.findMatch(matchId)); }
-export async function createGroupMatch(groupId, input, organizerId) { const context = await repository.getGroupContext(groupId); owner(context, organizerId); liveTournament(context); if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only'); return serializeMatch(await repository.createMatch(groupId, input)); }
-export async function updateGroupMatch(matchId, input, organizerId) { const context = await repository.getMatchContext(matchId); owner(context, organizerId); liveTournament(context); transition(context.status, input.status || context.status, matchTransitions, 'match'); if (context.status === 'COMPLETED' && input.status !== 'COMPLETED') throw errorResponses.conflict('Completed matches are read-only'); return serializeMatch(await repository.updateMatch(matchId, input)); }
-export async function completeMatch(matchId, organizerId) { return updateGroupMatch(matchId, { status: 'COMPLETED' }, organizerId); }
+export async function listGroupMatches(groupId, userId) {
+  const context = await repository.getGroupContext(groupId);
+  if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToGroup(groupId, userId)))) {
+    throw errorResponses.notFound('Group not found');
+  }
+  return (await repository.listMatches(groupId)).map(serializeMatch);
+}
+
+export async function getMatch(matchId, userId) {
+  const context = await repository.getMatchContext(matchId);
+  if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToGroup(context.group_id, userId)))) {
+    throw errorResponses.notFound('Match not found');
+  }
+  const match = await repository.findMatch(matchId);
+  return {
+    ...serializeMatch(match),
+    tournamentName: context.tournament_name,
+    tournamentId: context.tournament_id,
+    roundName: context.round_name,
+    roundId: context.round_id,
+    roundNumber: context.round_number,
+    groupName: context.group_name,
+    groupId: context.group_id,
+  };
+}
+
+export async function createGroupMatch(groupId, input, organizerId) {
+  const context = await repository.getGroupContext(groupId);
+  owner(context, organizerId);
+  liveTournament(context);
+  if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only');
+  const match = await repository.createMatch(groupId, input);
+  emitRealtime(realtimeRooms.group(groupId), 'match_created', serializeMatch(match));
+  return serializeMatch(match);
+}
+
+export async function updateGroupMatch(matchId, input, organizerId) {
+  const context = await repository.getMatchContext(matchId);
+  owner(context, organizerId);
+  liveTournament(context);
+  transition(context.status, input.status || context.status, matchTransitions, 'match');
+  if (context.status === 'COMPLETED' && input.status !== 'COMPLETED') throw errorResponses.conflict('Completed matches are read-only');
+  const match = await repository.updateMatch(matchId, input);
+  emitRealtime(realtimeRooms.group(context.group_id), 'match_update', serializeMatch(match));
+  return serializeMatch(match);
+}
+
+export async function completeMatch(matchId, organizerId) {
+  return updateGroupMatch(matchId, { status: 'COMPLETED' }, organizerId);
+}
+
+export async function deleteGroupMatch(matchId, organizerId) {
+  const context = await repository.getMatchContext(matchId);
+  owner(context, organizerId);
+  if (context.tournament_status === 'COMPLETED') {
+    throw errorResponses.conflict('Completed tournaments are read-only');
+  }
+  const resultCount = await repository.countMatchResults(matchId);
+  if (resultCount > 0) {
+    throw errorResponses.conflict(
+      'This match contains recorded results. Delete is restricted. Remove or correct the results first.'
+    );
+  }
+  await repository.deleteMatch(matchId);
+  emitRealtime(realtimeRooms.group(context.group_id), 'match_deleted', { matchId: Number(matchId) });
+  return { success: true, matchId: Number(matchId) };
+}
+
+export async function deleteRoundGroup(groupId, organizerId) {
+  const context = await repository.getGroupContext(groupId);
+  owner(context, organizerId);
+  if (context.tournament_status === 'COMPLETED') {
+    throw errorResponses.conflict('Completed tournaments are read-only');
+  }
+  const resultCount = await repository.countGroupResults(groupId);
+  if (resultCount > 0) {
+    throw errorResponses.conflict('Group contains completed match results and cannot be deleted.');
+  }
+  const qualCount = await repository.countGroupQualifications(groupId);
+  if (qualCount > 0) {
+    throw errorResponses.conflict('Group has qualified teams and cannot be deleted without resetting qualifications.');
+  }
+  await repository.deleteGroup(groupId);
+  emitRealtime(realtimeRooms.tournament(context.tournament_id), 'group_deleted', {
+    groupId: Number(groupId),
+    roundId: context.round_id,
+  });
+  return { success: true, groupId: Number(groupId) };
+}
+
+export async function notifyMatchSchedule(matchId, organizerId) {
+  const context = await repository.getMatchContext(matchId);
+  owner(context, organizerId);
+  const affected = await repository.getMatchAffectedPlayers(matchId);
+  const playerUserIds = [...new Set(affected.map((p) => p.user_id))];
+
+  const match = await repository.findMatch(matchId);
+  const timeString = match.scheduled_at
+    ? new Date(match.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'TBD';
+
+  let message = `Match Details: Round ${context.round_number} · ${context.group_name} · ${match.name} scheduled for ${timeString}.`;
+  if (match.room_id) {
+    message += ` Room ID: ${match.room_id}`;
+  }
+  if (match.room_password) {
+    message += ` Password: ${match.room_password}`;
+  }
+  if (match.instructions) {
+    message += ` Note: ${match.instructions}`;
+  }
+
+  if (playerUserIds.length > 0) {
+    await commRepo.createNotifications(
+      playerUserIds,
+      context.tournament_id,
+      'MATCH_SCHEDULE',
+      message
+    );
+    for (const p of affected) {
+      emitRealtime(realtimeRooms.user(p.user_id), realtimeEvents.notification, {
+        type: 'MATCH_SCHEDULE',
+        matchId: match.id,
+        message,
+      });
+    }
+  }
+
+  emitRealtime(realtimeRooms.group(context.group_id), 'match_update', serializeMatch(match));
+
+  return {
+    success: true,
+    recipientsCount: playerUserIds.length,
+    match: serializeMatch(match),
+  };
+}
+
 

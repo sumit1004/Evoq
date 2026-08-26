@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import { createApp } from './app.js';
 import { config } from './config/env.js';
 import { pingDatabase, pool } from './config/database.js';
+import { runMigrations } from './database/migrationRunner.js';
 import { registerSocketHandlers } from './sockets/index.js';
 import { logger } from './utils/logger.js';
 
@@ -58,6 +59,15 @@ server.listen(config.port, async () => {
     logger.error('database_connection_unavailable', {
       message: 'EVOQ database connection unavailable. Ensure MySQL is running on configured host and port.',
     });
+  } else {
+    try {
+      const migrationRes = await runMigrations();
+      if (migrationRes.applied?.length) {
+        logger.info('migrations_applied', { applied: migrationRes.applied });
+      }
+    } catch (migErr) {
+      logger.error('migrations_failed', { message: migErr.message, stack: migErr.stack });
+    }
   }
 });
 

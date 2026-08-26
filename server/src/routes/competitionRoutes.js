@@ -40,6 +40,7 @@ competitionRouter.post('/rounds/:roundId/groups', ...organizer, validateRequest(
 competitionRouter.get('/groups/:groupId', ...authenticated, validateRequest({ params: validateGroupId }), controller.getGroup);
 competitionRouter.patch('/groups/:groupId', ...organizer, validateRequest({ params: validateGroupId, body: validateGroupPatch }), controller.updateGroup);
 competitionRouter.post('/groups/:groupId/complete', ...organizer, validateRequest({ params: validateGroupId }), controller.completeGroup);
+competitionRouter.delete('/groups/:groupId', ...organizer, validateRequest({ params: validateGroupId }), controller.deleteGroup);
 competitionRouter.post('/groups/:groupId/teams/:teamId', ...organizer, validateRequest({ params: validateGroupTeamParams }), controller.assignTeam);
 competitionRouter.delete('/groups/:groupId/teams/:teamId', ...organizer, validateRequest({ params: validateGroupTeamParams }), controller.removeTeam);
 
@@ -48,4 +49,7 @@ competitionRouter.post('/groups/:groupId/matches', ...organizer, validateRequest
 competitionRouter.get('/matches/:matchId', ...authenticated, validateRequest({ params: validateMatchId }), controller.getMatch);
 competitionRouter.patch('/matches/:matchId', ...organizer, validateRequest({ params: validateMatchId, body: validateMatchPatch }), controller.updateMatch);
 competitionRouter.post('/matches/:matchId/complete', ...organizer, validateRequest({ params: validateMatchId }), controller.completeMatch);
+competitionRouter.delete('/matches/:matchId', ...organizer, validateRequest({ params: validateMatchId }), controller.deleteMatch);
+competitionRouter.post('/matches/:matchId/notify', ...organizer, validateRequest({ params: validateMatchId }), controller.notifyMatch);
+
 

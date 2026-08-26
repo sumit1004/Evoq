@@ -501,13 +501,26 @@ export function OrganizerTournamentPage() {
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {round.status === 'NOT_STARTED' && (
-                          <button className="button secondary-button" onClick={() => handleStartRound(round.id)}>
-                            Start Round
-                          </button>
-                        )}
-                        <Link className="button ghost-button" to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/qualifications`}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <Link
+                          className="button primary-button"
+                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
+                          to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}`}
+                        >
+                          Round Control Center
+                        </Link>
+                        <Link
+                          className="button secondary-button"
+                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
+                          to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/groups`}
+                        >
+                          Configure Groups
+                        </Link>
+                        <Link
+                          className="button ghost-button"
+                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
+                          to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/qualifications`}
+                        >
                           Qualifications
                         </Link>
                       </div>
@@ -544,7 +557,11 @@ export function OrganizerTournamentPage() {
                           </div>
 
                           <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                            <Link className="button primary-button" style={{ minHeight: '30px', padding: '0 10px', fontSize: '12px' }} to={`/organizer/tournaments/${tournamentId}/groups/${group.id}`}>
+                            <Link
+                              className="button primary-button"
+                              style={{ minHeight: '30px', padding: '0 10px', fontSize: '12px' }}
+                              to={`/organizer/tournaments/${tournamentId}/rounds/${round.id}/groups/${group.id}`}
+                            >
                               Open Workspace →
                             </Link>
                           </div>

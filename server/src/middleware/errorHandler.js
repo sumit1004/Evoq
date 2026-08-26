@@ -12,7 +12,10 @@ export function errorHandler(error, req, res, _next) {
     path: req.originalUrl,
     status,
     errorCode: code,
-    message: databaseFailure ? 'EVOQ database unavailable' : error.message,
+    message: error.message,
+    sqlCode: error.code,
+    sqlMessage: error.sqlMessage,
+    stack: error.stack,
   });
 
   res.status(status).json({

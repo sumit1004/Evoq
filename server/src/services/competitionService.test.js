@@ -5,6 +5,7 @@ vi.mock('../repositories/competitionRepository.js', () => ({
   listGroups: vi.fn(), findGroup: vi.fn(), createGroup: vi.fn(), updateGroup: vi.fn(), countIncompleteMatches: vi.fn(),
   assignTeam: vi.fn(), removeTeam: vi.fn(), listMatches: vi.fn(), findMatch: vi.fn(), createMatch: vi.fn(), updateMatch: vi.fn(), isPlayerAssignedToGroup: vi.fn(), listEligibleTeams: vi.fn(),
   generateRoundGroupsAndAssignments: vi.fn(), bulkMoveTeams: vi.fn(), lockRoundAssignment: vi.fn(), getRoundAffectedPlayers: vi.fn(),
+  countMatchResults: vi.fn(), deleteMatch: vi.fn(), countGroupResults: vi.fn(), countGroupQualifications: vi.fn(), deleteGroup: vi.fn(), getRoundStats: vi.fn(), getMatchAffectedPlayers: vi.fn(),
 }));
 
 vi.mock('../repositories/resultsRepository.js', () => ({
@@ -26,6 +27,7 @@ vi.mock('../utils/realtimeHub.js', () => ({
   realtimeRooms: {
     tournament: vi.fn((id) => `tournament_${id}`),
     user: vi.fn((id) => `user_${id}`),
+    group: vi.fn((id) => `group_${id}`),
   },
 }));
 
@@ -39,11 +41,15 @@ import {
   completeRound,
   createTournamentRound,
   createNextTournamentRound,
+  deleteGroupMatch,
+  deleteRoundGroup,
   lockRoundAssignment,
+  notifyMatchSchedule,
   updateRoundStatus,
   updateRoundGroup,
   updateGroupMatch,
 } from './competitionService.js';
+
 
 describe('competition service lifecycle and ownership', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -173,5 +179,52 @@ describe('autoAssignRoundGroups & bulkMove & lockRoundAssignment workflow', () =
     expect(repository.lockRoundAssignment).toHaveBeenCalledWith(1);
   });
 
+describe('match deletion & group deletion & notifications', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('rejects match deletion if tournament is completed', async () => {
+    repository.getMatchContext.mockResolvedValue({ id: 10, organizer_id: 8, group_id: 2, tournament_status: 'COMPLETED' });
+    await expect(deleteGroupMatch(10, 8)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects match deletion if results are recorded', async () => {
+    repository.getMatchContext.mockResolvedValue({ id: 10, organizer_id: 8, group_id: 2, tournament_status: 'LIVE' });
+    repository.countMatchResults.mockResolvedValue(3);
+    await expect(deleteGroupMatch(10, 8)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('successfully deletes match when no results exist', async () => {
+    repository.getMatchContext.mockResolvedValue({ id: 10, organizer_id: 8, group_id: 2, tournament_status: 'LIVE' });
+    repository.countMatchResults.mockResolvedValue(0);
+    repository.deleteMatch.mockResolvedValue();
+
+    const res = await deleteGroupMatch(10, 8);
+    expect(res.success).toBe(true);
+    expect(repository.deleteMatch).toHaveBeenCalledWith(10);
+  });
+
+  it('rejects group deletion if group has recorded match results', async () => {
+    repository.getGroupContext.mockResolvedValue({ id: 2, organizer_id: 8, round_id: 1, tournament_status: 'LIVE' });
+    repository.countGroupResults.mockResolvedValue(1);
+    await expect(deleteRoundGroup(2, 8)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects group deletion if group has finalized qualifications', async () => {
+    repository.getGroupContext.mockResolvedValue({ id: 2, organizer_id: 8, round_id: 1, tournament_status: 'LIVE' });
+    repository.countGroupResults.mockResolvedValue(0);
+    repository.countGroupQualifications.mockResolvedValue(2);
+    await expect(deleteRoundGroup(2, 8)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('successfully deletes group when safe', async () => {
+    repository.getGroupContext.mockResolvedValue({ id: 2, organizer_id: 8, round_id: 1, tournament_id: 5, tournament_status: 'LIVE' });
+    repository.countGroupResults.mockResolvedValue(0);
+    repository.countGroupQualifications.mockResolvedValue(0);
+    repository.deleteGroup.mockResolvedValue();
+
+    const res = await deleteRoundGroup(2, 8);
+    expect(res.success).toBe(true);
+    expect(repository.deleteGroup).toHaveBeenCalledWith(2);
+  });
 });
 

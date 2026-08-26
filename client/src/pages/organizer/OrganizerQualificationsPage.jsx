@@ -122,15 +122,31 @@ export function OrganizerQualificationsPage() {
   return (
     <section className="workspace-page">
       <div className="workspace-nav-bar">
-        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}?tab=rounds`}>
-          Back to tournament rounds
-        </Link>
-        <Link
-          className="button ghost-button"
-          to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}/groups`}
-        >
-          Manage Groups
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#91a0b3' }}>
+          <Link className="text-link" to={`/organizer/tournaments/${tournamentId}?tab=rounds`}>
+            Tournament Rounds
+          </Link>
+          <span>/</span>
+          <Link className="text-link" to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}`}>
+            Round {round?.roundNumber || roundId} Control Center
+          </Link>
+          <span>/</span>
+          <span style={{ color: '#fff', fontWeight: 'bold' }}>Qualifications</span>
+        </div>
+        <div className="nav-actions" style={{ display: 'flex', gap: '10px' }}>
+          <Link
+            className="button secondary-button"
+            to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}`}
+          >
+            Round Control Center
+          </Link>
+          <Link
+            className="button ghost-button"
+            to={`/organizer/tournaments/${tournamentId}/rounds/${roundId}/groups`}
+          >
+            Configure Groups
+          </Link>
+        </div>
       </div>
 
       {state.error && <div className="form-alert" role="alert">{state.error}</div>}

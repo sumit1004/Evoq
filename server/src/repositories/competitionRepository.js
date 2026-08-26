@@ -2,13 +2,14 @@ import { pool } from '../config/database.js';
 
 const roundFields = 'id, tournament_id, round_number, name, status, assignment_status, is_locked, qualifications_finalized_at, started_at, completed_at, created_at, updated_at';
 const groupFields = 'id, round_id, name, status, group_size, room_id, room_password, started_at, completed_at, created_at, updated_at';
-const matchFields = 'id, group_id, match_number, name, status, scheduled_at, started_at, completed_at, created_at, updated_at';
+const matchFields = 'id, group_id, match_number, name, status, room_id, room_password, scheduled_at, check_in_at, lobby_open_at, instructions, started_at, completed_at, created_at, updated_at';
 
-export async function getTournamentContext(tournamentId) { const [rows] = await pool.query('SELECT id, organizer_id, status FROM tournaments WHERE id = ?', [tournamentId]); return rows[0] || null; }
-export async function getRoundContext(roundId) { const [rows] = await pool.query(`SELECT r.*, t.organizer_id, t.status AS tournament_status FROM rounds r JOIN tournaments t ON t.id = r.tournament_id WHERE r.id = ?`, [roundId]); return rows[0] || null; }
-export async function getGroupContext(groupId) { const [rows] = await pool.query(`SELECT g.*, r.tournament_id, r.round_number, r.status AS round_status, r.is_locked AS round_is_locked, r.assignment_status AS round_assignment_status, t.organizer_id, t.status AS tournament_status FROM \`groups\` g JOIN rounds r ON r.id = g.round_id JOIN tournaments t ON t.id = r.tournament_id WHERE g.id = ?`, [groupId]); return rows[0] || null; }
+export async function getTournamentContext(tournamentId) { const [rows] = await pool.query('SELECT id, organizer_id, status, name FROM tournaments WHERE id = ?', [tournamentId]); return rows[0] || null; }
+export async function getRoundContext(roundId) { const [rows] = await pool.query(`SELECT r.*, t.organizer_id, t.status AS tournament_status, t.name AS tournament_name FROM rounds r JOIN tournaments t ON t.id = r.tournament_id WHERE r.id = ?`, [roundId]); return rows[0] || null; }
+export async function getGroupContext(groupId) { const [rows] = await pool.query(`SELECT g.*, r.tournament_id, r.round_number, r.name AS round_name, r.status AS round_status, r.is_locked AS round_is_locked, r.assignment_status AS round_assignment_status, t.organizer_id, t.status AS tournament_status, t.name AS tournament_name FROM \`groups\` g JOIN rounds r ON r.id = g.round_id JOIN tournaments t ON t.id = r.tournament_id WHERE g.id = ?`, [groupId]); return rows[0] || null; }
 export async function isPlayerAssignedToGroup(groupId, userId) { const [rows] = await pool.query('SELECT 1 FROM group_teams gt JOIN team_members tm ON tm.team_id = gt.team_id WHERE gt.group_id = ? AND tm.user_id = ? LIMIT 1', [groupId, userId]); return Boolean(rows[0]); }
-export async function getMatchContext(matchId) { const [rows] = await pool.query(`SELECT m.*, g.round_id, r.tournament_id, g.status AS group_status, r.status AS round_status, t.organizer_id, t.status AS tournament_status FROM matches m JOIN \`groups\` g ON g.id = m.group_id JOIN rounds r ON r.id = g.round_id JOIN tournaments t ON t.id = r.tournament_id WHERE m.id = ?`, [matchId]); return rows[0] || null; }
+export async function getMatchContext(matchId) { const [rows] = await pool.query(`SELECT m.*, g.name AS group_name, g.round_id, r.round_number, r.name AS round_name, r.tournament_id, g.status AS group_status, r.status AS round_status, t.organizer_id, t.status AS tournament_status, t.name AS tournament_name FROM matches m JOIN \`groups\` g ON g.id = m.group_id JOIN rounds r ON r.id = g.round_id JOIN tournaments t ON t.id = r.tournament_id WHERE m.id = ?`, [matchId]); return rows[0] || null; }
+
 
 export async function listRounds(tournamentId) { const [rows] = await pool.query(`SELECT ${roundFields} FROM rounds WHERE tournament_id = ? ORDER BY round_number`, [tournamentId]); return rows; }
 export async function findRound(roundId) { const [rows] = await pool.query(`SELECT ${roundFields} FROM rounds WHERE id = ?`, [roundId]); return rows[0] || null; }
@@ -341,8 +342,160 @@ export async function getRoundAffectedPlayers(roundId) {
   return rows;
 }
 
-export async function listMatches(groupId) { const [rows] = await pool.query(`SELECT ${matchFields} FROM matches WHERE group_id = ? ORDER BY match_number`, [groupId]); return rows; }
-export async function findMatch(matchId) { const [rows] = await pool.query(`SELECT ${matchFields} FROM matches WHERE id = ?`, [matchId]); return rows[0] || null; }
-export async function createMatch(groupId, input) { const [result] = await pool.query('INSERT INTO matches (group_id, match_number, name, scheduled_at) VALUES (?, ?, ?, ?)', [groupId, input.matchNumber, input.name.trim(), input.scheduledAt || null]); return findMatch(result.insertId); }
-export async function updateMatch(matchId, input) { const allowed = { name: 'name', status: 'status', scheduledAt: 'scheduled_at' }; const columns = []; const values = []; for (const [key, column] of Object.entries(allowed)) if (input[key] !== undefined) { columns.push(`${column} = ?`); values.push(key === 'name' ? input[key].trim() : input[key]); } if (columns.length) { await pool.query(`UPDATE matches SET ${columns.join(', ')}, started_at = CASE WHEN ? = 'LIVE' AND started_at IS NULL THEN CURRENT_TIMESTAMP ELSE started_at END, completed_at = CASE WHEN ? = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = ?`, [...values, input.status || '', input.status || '', matchId]); } return findMatch(matchId); }
+export async function listMatches(groupId) {
+  const [rows] = await pool.query(`SELECT ${matchFields} FROM matches WHERE group_id = ? ORDER BY match_number`, [groupId]);
+  return rows;
+}
+
+export async function findMatch(matchId) {
+  const [rows] = await pool.query(`SELECT ${matchFields} FROM matches WHERE id = ?`, [matchId]);
+  return rows[0] || null;
+}
+
+export async function createMatch(groupId, input) {
+  const [result] = await pool.query(
+    'INSERT INTO matches (group_id, match_number, name, status, room_id, room_password, scheduled_at, check_in_at, lobby_open_at, instructions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      groupId,
+      input.matchNumber,
+      input.name.trim(),
+      input.status || 'SCHEDULED',
+      input.roomId || null,
+      input.roomPassword || null,
+      input.scheduledAt || null,
+      input.checkInAt || null,
+      input.lobbyOpenAt || null,
+      input.instructions || null,
+    ]
+  );
+  return findMatch(result.insertId);
+}
+
+export async function updateMatch(matchId, input) {
+  const allowed = {
+    name: 'name',
+    matchNumber: 'match_number',
+    status: 'status',
+    roomId: 'room_id',
+    roomPassword: 'room_password',
+    scheduledAt: 'scheduled_at',
+    checkInAt: 'check_in_at',
+    lobbyOpenAt: 'lobby_open_at',
+    instructions: 'instructions',
+  };
+  const columns = [];
+  const values = [];
+  for (const [key, column] of Object.entries(allowed)) {
+    if (input[key] !== undefined) {
+      columns.push(`${column} = ?`);
+      values.push(key === 'name' && typeof input[key] === 'string' ? input[key].trim() : input[key]);
+    }
+  }
+  if (columns.length) {
+    await pool.query(
+      `UPDATE matches SET ${columns.join(', ')}, started_at = CASE WHEN ? = 'LIVE' AND started_at IS NULL THEN CURRENT_TIMESTAMP ELSE started_at END, completed_at = CASE WHEN ? = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = ?`,
+      [...values, input.status || '', input.status || '', matchId]
+    );
+  }
+  return findMatch(matchId);
+}
+
+export async function countMatchResults(matchId) {
+  const [rows] = await pool.query('SELECT COUNT(*) AS count FROM match_results WHERE match_id = ?', [matchId]);
+  return Number(rows[0]?.count || 0);
+}
+
+export async function deleteMatch(matchId) {
+  await pool.query('DELETE FROM matches WHERE id = ?', [matchId]);
+}
+
+export async function countGroupResults(groupId) {
+  const [rows] = await pool.query(
+    'SELECT COUNT(*) AS count FROM matches m JOIN match_results mr ON mr.match_id = m.id WHERE m.group_id = ?',
+    [groupId]
+  );
+  return Number(rows[0]?.count || 0);
+}
+
+export async function countGroupQualifications(groupId) {
+  const [rows] = await pool.query('SELECT COUNT(*) AS count FROM qualifications WHERE source_group_id = ?', [groupId]);
+  return Number(rows[0]?.count || 0);
+}
+
+export async function deleteGroup(groupId) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    // Delete group_teams assignments (preserves teams and registrations)
+    await connection.query('DELETE FROM group_teams WHERE group_id = ?', [groupId]);
+    // Delete chat messages for group
+    await connection.query('DELETE FROM chat_messages WHERE group_id = ?', [groupId]);
+    // Delete matches (cascades or explicit delete)
+    await connection.query('DELETE FROM matches WHERE group_id = ?', [groupId]);
+    // Delete group record
+    await connection.query('DELETE FROM `groups` WHERE id = ?', [groupId]);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function getMatchAffectedPlayers(matchId) {
+  const [rows] = await pool.query(
+    `SELECT tm.user_id, t.id AS team_id, t.name AS team_name, m.id AS match_id, m.match_number, m.name AS match_name, m.scheduled_at, m.check_in_at, m.lobby_open_at, m.room_id, m.room_password, m.instructions, g.id AS group_id, g.name AS group_name, r.id AS round_id, r.round_number, r.tournament_id, tr.name AS tournament_name
+     FROM matches m
+     JOIN \`groups\` g ON g.id = m.group_id
+     JOIN rounds r ON r.id = g.round_id
+     JOIN tournaments tr ON tr.id = r.tournament_id
+     JOIN group_teams gt ON gt.group_id = g.id
+     JOIN teams t ON t.id = gt.team_id
+     JOIN team_members tm ON tm.team_id = t.id
+     WHERE m.id = ?`,
+    [matchId]
+  );
+  return rows;
+}
+
+export async function getRoundStats(roundId) {
+  const [groupRows] = await pool.query(
+    `SELECT 
+       COUNT(DISTINCT g.id) AS total_groups,
+       COUNT(DISTINCT CASE WHEN g.status = 'COMPLETED' THEN g.id END) AS completed_groups,
+       COUNT(DISTINCT gt.team_id) AS total_teams
+     FROM \`groups\` g
+     LEFT JOIN group_teams gt ON gt.group_id = g.id
+     WHERE g.round_id = ?`,
+    [roundId]
+  );
+
+  const [matchRows] = await pool.query(
+    `SELECT 
+       COUNT(DISTINCT m.id) AS total_matches,
+       COUNT(DISTINCT CASE WHEN m.status = 'COMPLETED' THEN m.id END) AS completed_matches,
+       COUNT(DISTINCT CASE WHEN m.status = 'LIVE' THEN m.id END) AS live_matches
+     FROM \`groups\` g
+     JOIN matches m ON m.group_id = g.id
+     WHERE g.round_id = ?`,
+    [roundId]
+  );
+
+  const [qualRows] = await pool.query(
+    `SELECT COUNT(DISTINCT team_id) AS qualified_teams FROM qualifications WHERE round_id = ?`,
+    [roundId]
+  );
+
+  return {
+    totalGroups: Number(groupRows[0]?.total_groups || 0),
+    completedGroups: Number(groupRows[0]?.completed_groups || 0),
+    totalTeams: Number(groupRows[0]?.total_teams || 0),
+    totalMatches: Number(matchRows[0]?.total_matches || 0),
+    completedMatches: Number(matchRows[0]?.completed_matches || 0),
+    liveMatches: Number(matchRows[0]?.live_matches || 0),
+    qualifiedTeams: Number(qualRows[0]?.qualified_teams || 0),
+  };
+}
+
 

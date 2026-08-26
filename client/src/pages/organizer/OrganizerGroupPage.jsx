@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   assignTeam,
   completeGroup,
   completeMatch,
   createMatch,
   createResult,
+  deleteGroup,
+  deleteMatch,
   fetchEligibleTeams,
   fetchGroup,
   fetchGroupLeaderboard,
   fetchGroupMatches,
   fetchResults,
+  notifyMatchSchedule,
   recalculateLeaderboard,
   removeGroupTeam,
   updateGroup,
@@ -21,7 +24,8 @@ import { GroupChatView } from '../../components/GroupChatView.jsx';
 const GROUP_TABS = ['overview', 'teams', 'matches', 'leaderboard', 'chat'];
 
 export function OrganizerGroupPage() {
-  const { tournamentId, groupId } = useParams();
+  const { tournamentId, roundId, groupId } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeTab = GROUP_TABS.includes(searchParams.get('tab'))
@@ -43,7 +47,18 @@ export function OrganizerGroupPage() {
 
   // Forms
   const [room, setRoom] = useState({ roomId: '', roomPassword: '' });
-  const [matchForm, setMatchForm] = useState({ matchNumber: 1, name: 'Match 1' });
+  const [showAddMatchForm, setShowAddMatchForm] = useState(false);
+  const [matchForm, setMatchForm] = useState({
+    matchNumber: 1,
+    name: 'Match 1',
+    scheduledAt: '',
+    checkInAt: '',
+    lobbyOpenAt: '',
+    roomId: '',
+    roomPassword: '',
+    instructions: '',
+  });
+
   const [scoreModal, setScoreModal] = useState({
     isOpen: false,
     matchId: null,
@@ -55,6 +70,8 @@ export function OrganizerGroupPage() {
     resultText: '',
   });
 
+  const [deleteConfirmGroup, setDeleteConfirmGroup] = useState(false);
+  const [deleteConfirmMatch, setDeleteConfirmMatch] = useState(null);
   const [expandedResults, setExpandedResults] = useState({});
   const [matchResults, setMatchResults] = useState({});
   const [state, setState] = useState({ loading: true, submitting: false, error: '', notice: '' });
@@ -77,7 +94,11 @@ export function OrganizerGroupPage() {
       if (matchesRes.status === 'fulfilled') {
         const list = matchesRes.value.matches || grp.matches || [];
         setMatches(list);
-        setMatchForm({ matchNumber: list.length + 1, name: `Match ${list.length + 1}` });
+        setMatchForm((prev) => ({
+          ...prev,
+          matchNumber: list.length + 1,
+          name: `Match ${list.length + 1}`,
+        }));
       }
       if (leaderRes.status === 'fulfilled') {
         setGroupLeaderboard(leaderRes.value.leaderboard || []);
@@ -103,7 +124,7 @@ export function OrganizerGroupPage() {
     try {
       const result = await updateGroup(groupId, room);
       setGroup(result.group);
-      setState({ loading: false, submitting: false, notice: 'Room credentials updated and broadcasted.', error: '' });
+      setState({ loading: false, submitting: false, notice: 'Group room credentials updated and broadcasted.', error: '' });
     } catch (error) {
       setState({ loading: false, submitting: false, error: error.message, notice: '' });
     }
@@ -164,13 +185,73 @@ export function OrganizerGroupPage() {
     e.preventDefault();
     setState((s) => ({ ...s, submitting: true, error: '', notice: '' }));
     try {
-      const result = await createMatch(groupId, {
+      const payload = {
         matchNumber: Number(matchForm.matchNumber),
         name: matchForm.name.trim(),
-      });
+        scheduledAt: matchForm.scheduledAt || null,
+        checkInAt: matchForm.checkInAt || null,
+        lobbyOpenAt: matchForm.lobbyOpenAt || null,
+        roomId: matchForm.roomId.trim() || null,
+        roomPassword: matchForm.roomPassword.trim() || null,
+        instructions: matchForm.instructions.trim() || null,
+      };
+      const result = await createMatch(groupId, payload);
       setMatches((prev) => [...prev, result.match]);
-      setMatchForm({ matchNumber: matches.length + 2, name: `Match ${matches.length + 2}` });
-      setState({ loading: false, submitting: false, notice: 'Match scheduled.', error: '' });
+      setMatchForm({
+        matchNumber: matches.length + 2,
+        name: `Match ${matches.length + 2}`,
+        scheduledAt: '',
+        checkInAt: '',
+        lobbyOpenAt: '',
+        roomId: '',
+        roomPassword: '',
+        instructions: '',
+      });
+      setShowAddMatchForm(false);
+      setState({ loading: false, submitting: false, notice: 'Match scheduled successfully.', error: '' });
+    } catch (error) {
+      setState({ loading: false, submitting: false, error: error.message, notice: '' });
+    }
+  };
+
+  // Delete Match
+  const handleDeleteMatch = async () => {
+    if (!deleteConfirmMatch) return;
+    setState((s) => ({ ...s, submitting: true, error: '', notice: '' }));
+    try {
+      await deleteMatch(deleteConfirmMatch.id);
+      setMatches((prev) => prev.filter((m) => m.id !== deleteConfirmMatch.id));
+      const matchName = deleteConfirmMatch.name;
+      setDeleteConfirmMatch(null);
+      setState({ loading: false, submitting: false, notice: `Match "${matchName}" deleted.`, error: '' });
+    } catch (error) {
+      setState({ loading: false, submitting: false, error: error.message, notice: '' });
+    }
+  };
+
+  // Delete Group
+  const handleDeleteGroup = async () => {
+    setState((s) => ({ ...s, submitting: true, error: '', notice: '' }));
+    try {
+      await deleteGroup(groupId);
+      setDeleteConfirmGroup(false);
+      navigate(`/organizer/tournaments/${tournamentId}/rounds/${group.roundId || roundId}`);
+    } catch (error) {
+      setState({ loading: false, submitting: false, error: error.message, notice: '' });
+    }
+  };
+
+  // Notify Match Schedule & Room Details
+  const handleNotifyMatch = async (matchId) => {
+    setState((s) => ({ ...s, submitting: true, error: '', notice: '' }));
+    try {
+      const res = await notifyMatchSchedule(matchId);
+      setState({
+        loading: false,
+        submitting: false,
+        notice: `Match details sent to ${res.recipientsCount || 'all group'} players.`,
+        error: '',
+      });
     } catch (error) {
       setState({ loading: false, submitting: false, error: error.message, notice: '' });
     }
@@ -244,7 +325,9 @@ export function OrganizerGroupPage() {
   if (!group) {
     return (
       <section className="workspace-page">
-        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}`}>Back to tournament</Link>
+        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}?tab=rounds`}>
+          Back to tournament rounds
+        </Link>
         <div className="form-alert" role="alert" style={{ marginTop: '20px' }}>
           {state.error || 'Group not found.'}
         </div>
@@ -252,13 +335,19 @@ export function OrganizerGroupPage() {
     );
   }
 
+  const effectiveRoundId = roundId || group.roundId;
+
   return (
     <section className="workspace-page organizer-group-workspace">
-      {/* Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#91a0b3', marginBottom: '15px' }}>
+      {/* Hierarchical Breadcrumb Navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#91a0b3', marginBottom: '15px', flexWrap: 'wrap' }}>
         <Link className="text-link" to="/organizer/tournaments">Tournaments</Link>
         <span>/</span>
-        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}`}>Tournament Control Center</Link>
+        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}`}>Tournament Hub</Link>
+        <span>/</span>
+        <Link className="text-link" to={`/organizer/tournaments/${tournamentId}/rounds/${effectiveRoundId}`}>
+          Round Control Center
+        </Link>
         <span>/</span>
         <span style={{ color: '#fff', fontWeight: 'bold' }}>{group.name}</span>
       </div>
@@ -281,7 +370,7 @@ export function OrganizerGroupPage() {
                 Capacity: {group.teams?.length || 0} / {group.groupSize || 12} Teams
               </span>
             </div>
-            <h1 style={{ margin: 0, fontSize: '28px', color: '#fff' }}>{group.name}</h1>
+            <h1 style={{ margin: 0, fontSize: '28px', color: '#fff' }}>{group.name} Workspace</h1>
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -329,10 +418,10 @@ export function OrganizerGroupPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
           {/* Room Management Form */}
           <form onSubmit={handleSaveRoom} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '20px' }}>
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: '#7dd3fc' }}>Room & Lobby Management</h3>
+            <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: '#7dd3fc' }}>Group Room & Lobby</h3>
             
             <label htmlFor="org-room-id" style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: '#91a0b3' }}>
-              In-Game Custom Room ID
+              Custom Room ID
             </label>
             <input
               id="org-room-id"
@@ -354,31 +443,51 @@ export function OrganizerGroupPage() {
             />
 
             <button className="button primary-button" type="submit" disabled={state.submitting}>
-              Save & Broadcast Room Credentials
+              Save Group Credentials
             </button>
           </form>
 
-          {/* Quick Group Stats */}
-          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '20px' }}>
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: '#fff' }}>Group Information</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <span style={{ color: '#91a0b3' }}>Group Status:</span>
-                <strong style={{ color: '#7dd3fc' }}>{group.status}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <span style={{ color: '#91a0b3' }}>Assigned Teams:</span>
-                <strong style={{ color: '#fff' }}>{group.teams?.length || 0} / {group.groupSize || 12}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <span style={{ color: '#91a0b3' }}>Scheduled Matches:</span>
-                <strong style={{ color: '#fff' }}>{matches.length}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ color: '#91a0b3' }}>Room Status:</span>
-                <strong style={{ color: group.roomId ? '#2ecc71' : '#f6c453' }}>{group.roomId ? 'Configured' : 'Awaiting Room ID'}</strong>
+          {/* Quick Group Stats & Danger Zone */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: '#fff' }}>Group Information</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span style={{ color: '#91a0b3' }}>Status:</span>
+                  <strong style={{ color: '#7dd3fc' }}>{group.status}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span style={{ color: '#91a0b3' }}>Assigned Teams:</span>
+                  <strong style={{ color: '#fff' }}>{group.teams?.length || 0} / {group.groupSize || 12}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span style={{ color: '#91a0b3' }}>Scheduled Matches:</span>
+                  <strong style={{ color: '#fff' }}>{matches.length}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <span style={{ color: '#91a0b3' }}>Room Status:</span>
+                  <strong style={{ color: group.roomId ? '#2ecc71' : '#f6c453' }}>{group.roomId ? 'Configured' : 'Awaiting Room ID'}</strong>
+                </div>
               </div>
             </div>
+
+            {/* Danger Zone */}
+            {group.status !== 'COMPLETED' && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '16px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#ef4444', fontSize: '15px' }}>Danger Zone</h4>
+                <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#91a0b3' }}>
+                  Deleting this group will unassign teams back to the pool and delete scheduled matches with no recorded results. Registered teams and player records remain intact.
+                </p>
+                <button
+                  className="button danger-button"
+                  style={{ minHeight: '34px', fontSize: '13px' }}
+                  type="button"
+                  onClick={() => setDeleteConfirmGroup(true)}
+                >
+                  Delete Group
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -435,29 +544,110 @@ export function OrganizerGroupPage() {
       {/* ========================================================================= */}
       {activeTab === 'matches' && (
         <div>
-          {/* Add Match Form */}
-          <form onSubmit={handleAddMatch} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '16px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '20px' }}>
-            <span style={{ fontWeight: 'bold', color: '#7dd3fc' }}>Schedule Match:</span>
-            <input
-              type="number"
-              min="1"
-              style={{ width: '80px', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 8px' }}
-              value={matchForm.matchNumber}
-              onChange={(e) => setMatchForm({ matchNumber: e.target.value, name: `Match ${e.target.value}` })}
-              placeholder="Match #"
-              required
-            />
-            <input
-              style={{ flex: '1 1 180px', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 10px' }}
-              value={matchForm.name}
-              onChange={(e) => setMatchForm({ ...matchForm, name: e.target.value })}
-              placeholder="Match Name (e.g. Match 1 - Bermuda)"
-              required
-            />
-            <button className="button primary-button" type="submit" disabled={state.submitting}>
-              + Add Match
+          {/* Schedule Match Toggle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>Matches ({matches.length})</h3>
+            <button
+              className="button primary-button"
+              type="button"
+              onClick={() => setShowAddMatchForm((v) => !v)}
+            >
+              {showAddMatchForm ? 'Hide Form' : '+ Schedule New Match'}
             </button>
-          </form>
+          </div>
+
+          {/* Add Match Form */}
+          {showAddMatchForm && (
+            <form onSubmit={handleAddMatch} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(125, 211, 252, 0.2)', borderRadius: '8px', padding: '20px', marginBottom: '24px' }}>
+              <h4 style={{ margin: '0 0 16px 0', color: '#7dd3fc' }}>Schedule New Match</h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label htmlFor="match-number-input" style={{ display: 'block', fontSize: '12px', color: '#91a0b3', marginBottom: '4px' }}>Match Number</label>
+                  <input
+                    id="match-number-input"
+                    type="number"
+                    min="1"
+                    style={{ width: '100%', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 8px' }}
+                    value={matchForm.matchNumber}
+                    onChange={(e) => setMatchForm({ ...matchForm, matchNumber: e.target.value, name: `Match ${e.target.value}` })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="match-name-input" style={{ display: 'block', fontSize: '12px', color: '#91a0b3', marginBottom: '4px' }}>Match Name</label>
+                  <input
+                    id="match-name-input"
+                    style={{ width: '100%', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 10px' }}
+                    value={matchForm.name}
+                    onChange={(e) => setMatchForm({ ...matchForm, name: e.target.value })}
+                    placeholder="e.g. Match 1 - Bermuda"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="match-sched-input" style={{ display: 'block', fontSize: '12px', color: '#91a0b3', marginBottom: '4px' }}>Start Time (Optional)</label>
+                  <input
+                    id="match-sched-input"
+                    type="datetime-local"
+                    style={{ width: '100%', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 8px' }}
+                    value={matchForm.scheduledAt}
+                    onChange={(e) => setMatchForm({ ...matchForm, scheduledAt: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label htmlFor="match-room-id-input" style={{ display: 'block', fontSize: '12px', color: '#91a0b3', marginBottom: '4px' }}>Match Room ID (Optional)</label>
+                  <input
+                    id="match-room-id-input"
+                    style={{ width: '100%', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 8px' }}
+                    value={matchForm.roomId}
+                    onChange={(e) => setMatchForm({ ...matchForm, roomId: e.target.value })}
+                    placeholder="Room ID"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="match-room-pw-input" style={{ display: 'block', fontSize: '12px', color: '#91a0b3', marginBottom: '4px' }}>Match Password (Optional)</label>
+                  <input
+                    id="match-room-pw-input"
+                    style={{ width: '100%', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 8px' }}
+                    value={matchForm.roomPassword}
+                    onChange={(e) => setMatchForm({ ...matchForm, roomPassword: e.target.value })}
+                    placeholder="Password"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="match-notes-input" style={{ display: 'block', fontSize: '12px', color: '#91a0b3', marginBottom: '4px' }}>Notes / Instructions (Optional)</label>
+                  <input
+                    id="match-notes-input"
+                    style={{ width: '100%', minHeight: '38px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', color: '#fff', padding: '0 8px' }}
+                    value={matchForm.instructions}
+                    onChange={(e) => setMatchForm({ ...matchForm, instructions: e.target.value })}
+                    placeholder="e.g. Slot 1-12 strictly by seed"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  className="button ghost-button"
+                  type="button"
+                  onClick={() => setShowAddMatchForm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button primary-button"
+                  type="submit"
+                  disabled={state.submitting}
+                >
+                  Save & Schedule Match
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* Matches List */}
           {matches.length === 0 ? (
@@ -467,19 +657,29 @@ export function OrganizerGroupPage() {
               {matches.map((match) => {
                 const isExpanded = expandedResults[match.id];
                 const scores = matchResults[match.id] || [];
+                const matchWorkspaceUrl = `/organizer/tournaments/${tournamentId}/rounds/${effectiveRoundId}/groups/${groupId}/matches/${match.id}`;
 
                 return (
                   <div key={match.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <strong style={{ color: '#7dd3fc', fontSize: '13px' }}>Match #{match.matchNumber}</strong>
                           <span className={`status-badge ${match.status.toLowerCase()}`}>{match.status}</span>
+                          {match.scheduledAt && (
+                            <span style={{ fontSize: '12px', color: '#91a0b3' }}>
+                              · {new Date(match.scheduledAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                          )}
                         </div>
-                        <h4 style={{ margin: '4px 0 0 0', fontSize: '18px', color: '#fff' }}>{match.name}</h4>
+                        <h4 style={{ margin: '4px 0 2px 0', fontSize: '18px', color: '#fff' }}>{match.name}</h4>
+                        <div style={{ fontSize: '12px', color: '#91a0b3' }}>
+                          Room: {match.roomId ? <strong style={{ color: '#2ecc71' }}>{match.roomId}</strong> : 'Not configured'}
+                          {match.roomPassword ? ` · Pass: ${match.roomPassword}` : ''}
+                        </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         {match.status === 'SCHEDULED' && (
                           <button className="button primary-button" style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }} onClick={() => handleSetMatchStatus(match, 'LIVE')}>
                             Start Match (LIVE)
@@ -491,16 +691,41 @@ export function OrganizerGroupPage() {
                           </button>
                         )}
 
+                        <Link
+                          className="button secondary-button"
+                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
+                          to={matchWorkspaceUrl}
+                        >
+                          Match Workspace
+                        </Link>
+
                         <button
                           className="button ghost-button"
-                          style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}
+                          style={{ minHeight: '32px', padding: '0 10px', fontSize: '12px' }}
+                          onClick={() => handleNotifyMatch(match.id)}
+                          title="Broadcast match time and credentials to assigned teams"
+                        >
+                          Notify Teams
+                        </button>
+
+                        <button
+                          className="button ghost-button"
+                          style={{ minHeight: '32px', padding: '0 10px', fontSize: '12px' }}
                           onClick={() => setScoreModal({ isOpen: true, matchId: match.id, matchName: match.name, teamId: group.teams?.[0]?.id || '', points: 0, kills: 0, placement: 1, resultText: '' })}
                         >
                           + Record Score
                         </button>
 
-                        <button className="button secondary-button" style={{ minHeight: '32px', padding: '0 10px', fontSize: '12px' }} onClick={() => toggleResult(match.id)}>
-                          {isExpanded ? 'Hide Scores ▲' : 'View Scores ▼'}
+                        <button className="button ghost-button" style={{ minHeight: '32px', padding: '0 10px', fontSize: '12px' }} onClick={() => toggleResult(match.id)}>
+                          {isExpanded ? 'Hide Scores ▲' : 'Scores ▼'}
+                        </button>
+
+                        <button
+                          className="button ghost-button danger-text"
+                          style={{ minHeight: '32px', padding: '0 8px', fontSize: '12px' }}
+                          onClick={() => setDeleteConfirmMatch(match)}
+                        >
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -606,6 +831,29 @@ export function OrganizerGroupPage() {
               </form>
             </div>
           )}
+
+          {/* Delete Match Confirmation Modal */}
+          {deleteConfirmMatch && (
+            <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '20px' }}>
+              <div style={{ background: '#1c2128', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px', padding: '24px', width: 'min(420px, 100%)' }}>
+                <h3 style={{ margin: '0 0 12px 0', color: '#ef4444' }}>Delete Match</h3>
+                <p style={{ color: '#cdd6e2', fontSize: '14px', marginBottom: '16px' }}>
+                  Are you sure you want to delete <strong>{deleteConfirmMatch.name}</strong>?
+                </p>
+                <p style={{ color: '#91a0b3', fontSize: '13px', marginBottom: '20px' }}>
+                  Note: Matches with recorded scores cannot be deleted until results are cleared.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button className="button ghost-button" type="button" onClick={() => setDeleteConfirmMatch(null)}>
+                    Cancel
+                  </button>
+                  <button className="button danger-button" type="button" onClick={handleDeleteMatch} disabled={state.submitting}>
+                    Confirm Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -658,6 +906,39 @@ export function OrganizerGroupPage() {
           groupName={group.name}
           isCompleted={group.status === 'COMPLETED'}
         />
+      )}
+
+      {/* Delete Group Modal */}
+      {deleteConfirmGroup && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '20px' }}>
+          <div style={{ background: '#1c2128', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px', padding: '24px', width: 'min(450px, 100%)' }}>
+            <h3 style={{ margin: '0 0 12px 0', color: '#ef4444' }}>Delete Group</h3>
+            <p style={{ color: '#cdd6e2', fontSize: '14px', lineHeight: 1.5, marginBottom: '16px' }}>
+              Are you sure you want to delete <strong>{group.name}</strong>?
+            </p>
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '12px', fontSize: '13px', color: '#fca5a5', marginBottom: '20px' }}>
+              <strong>Safety Note:</strong> Deleting a group removes group assignments and scheduled matches without results. The underlying registered teams and players remain fully preserved in the tournament.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                className="button ghost-button"
+                type="button"
+                onClick={() => setDeleteConfirmGroup(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="button danger-button"
+                type="button"
+                onClick={handleDeleteGroup}
+                disabled={state.submitting}
+              >
+                Confirm Delete Group
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
