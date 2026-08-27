@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { fetchTournament, fetchRegistrations } from '../../services/tournamentApi.js';
 import { fetchAnnouncements } from '../../services/communicationApi.js';
 import {
