@@ -91,8 +91,8 @@ export function TournamentsPage() {
 
     if (identity.role === 'ORGANIZER') {
       return (
-        <Link className="button secondary-button card-action-btn" to={`/tournaments/${t.id}`}>
-          View Details
+        <Link className="button primary-button card-action-btn" to={`/organizer/tournaments/${t.id}`}>
+          Open Tournament →
         </Link>
       );
     }
@@ -101,21 +101,36 @@ export function TournamentsPage() {
     switch (t.playerRegistrationStatus) {
       case 'VERIFIED':
         return (
-          <span className="registered-badge">
-            ✓ Registered
-          </span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span className="registered-badge">
+              ✓ Registered
+            </span>
+            <Link className="button primary-button card-action-btn" to={`/player/communications/${t.id}`}>
+              Open Tournament →
+            </Link>
+          </div>
         );
       case 'PENDING':
         return (
-          <span className="registered-badge pending">
-            ● Pending Review
-          </span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span className="registered-badge pending">
+              ● Pending Review
+            </span>
+            <Link className="button secondary-button card-action-btn" to={`/player/communications/${t.id}`}>
+              Open Tournament
+            </Link>
+          </div>
         );
       case 'REJECTED':
         return (
-          <Link className="button primary-button card-action-btn danger" to={`/tournaments/${t.id}`}>
-            Fix Registration
-          </Link>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Link className="button primary-button card-action-btn danger" to={`/tournaments/${t.id}`}>
+              Fix Registration
+            </Link>
+            <Link className="button secondary-button card-action-btn" to={`/player/communications/${t.id}`}>
+              Open Tournament
+            </Link>
+          </div>
         );
       default:
         // NONE or CANCELLED
@@ -500,7 +515,7 @@ export function TournamentsPage() {
                         <div className="card-header">
                           {renderStatusBadge(t.status)}
                           <span style={{ fontSize: '12px', color: '#91a0b3' }}>
-                            {t.playersPerTeam}v{t.playersPerTeam} format
+                            {t.playersPerTeam} Players / Team
                           </span>
                         </div>
                         

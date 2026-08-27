@@ -17,6 +17,8 @@ import {
 import { completeTournament } from '../../services/archiveApi.js';
 import { useSocket } from '../../context/SocketContext.jsx';
 import { OrganizerRoundsHub } from '../../components/organizer/OrganizerRoundsHub.jsx';
+import { LeaderboardTable } from '../../components/common/LeaderboardTable.jsx';
+import { PointConfigurationSection } from '../../components/organizer/PointConfigurationSection.jsx';
 
 const ORGANIZER_TABS = ['overview', 'rounds', 'registrations', 'leaderboard', 'announcements', 'settings'];
 
@@ -503,45 +505,12 @@ export function OrganizerTournamentPage() {
       {/* TAB 4: LEADERBOARD */}
       {/* ========================================================================= */}
       {activeTab === 'leaderboard' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0, fontSize: '20px', color: '#fff' }}>Overall Tournament Standings</h3>
-            <span style={{ fontSize: '13px', color: '#91a0b3' }}>
-              Calculated across all completed rounds and match points
-            </span>
-          </div>
-
-          <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', overflowX: 'auto' }}>
-            {leaderboard.length === 0 ? (
-              <p className="empty-state">No leaderboard data calculated yet.</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(255,255,255,0.04)', color: '#91a0b3', fontSize: '13px' }}>
-                    <th style={{ padding: '12px 15px' }}>Rank</th>
-                    <th style={{ padding: '12px 15px' }}>Team</th>
-                    <th style={{ padding: '12px 15px' }}>Kills</th>
-                    <th style={{ padding: '12px 15px' }}>Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leaderboard.map((row, index) => (
-                    <tr key={`${row.teamId}-${index}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '12px 15px', fontWeight: 'bold', color: index === 0 ? '#f6c453' : index === 1 ? '#cdd6e2' : index === 2 ? '#d97706' : '#fff' }}>
-                        #{row.rank || index + 1}
-                      </td>
-                      <td style={{ padding: '12px 15px', fontWeight: '500', color: '#fff' }}>
-                        {row.teamName}
-                      </td>
-                      <td style={{ padding: '12px 15px', color: '#91a0b3' }}>{row.kills}</td>
-                      <td style={{ padding: '12px 15px', fontWeight: 'bold', color: '#7dd3fc' }}>{row.points}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+        <LeaderboardTable
+          rows={leaderboard}
+          title="Overall Tournament Standings"
+          subtitle="Calculated across all completed rounds and match points"
+          emptyMessage="No leaderboard data calculated yet."
+        />
       )}
 
       {/* ========================================================================= */}
@@ -599,6 +568,13 @@ export function OrganizerTournamentPage() {
             <div className="detail-panel"><strong>Players per Team</strong><span>{tournament.playersPerTeam}</span></div>
             <div className="detail-panel"><strong>Entry Type</strong><span>{tournament.entryType}</span></div>
             <div className="detail-panel"><strong>Entry Fee</strong><span>₹{tournament.entryFee || 0}</span></div>
+          </div>
+
+          <div style={{ marginBottom: '25px' }}>
+            <PointConfigurationSection
+              tournamentId={tournamentId}
+              isCompleted={tournament.status === 'COMPLETED'}
+            />
           </div>
 
           <div style={{ paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', marginBottom: '25px' }}>

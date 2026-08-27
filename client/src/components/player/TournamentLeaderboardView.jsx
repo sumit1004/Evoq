@@ -1,7 +1,11 @@
+import { LeaderboardTable } from '../common/LeaderboardTable.jsx';
+
 export function TournamentLeaderboardView({
   leaderboard = [],
   playerTeam,
   isCompleted = false,
+  loading = false,
+  error = ''
 }) {
   return (
     <div className="tournament-leaderboard-container">
@@ -15,27 +19,27 @@ export function TournamentLeaderboardView({
             {/* 2nd Place */}
             <div className="podium-step step-silver">
               <div className="podium-medal">2nd Place</div>
-              <strong className="podium-team-name">{leaderboard[1].teamName}</strong>
+              <strong className="podium-team-name">{leaderboard[1]?.teamName || leaderboard[1]?.team_name}</strong>
               <span className="podium-stats">
-                {leaderboard[1].points} pts · {leaderboard[1].kills} kills
+                {leaderboard[1]?.points ?? 0} pts · {leaderboard[1]?.kills ?? 0} kills
               </span>
             </div>
 
             {/* 1st Place */}
             <div className="podium-step step-gold">
               <div className="podium-medal">CHAMPION</div>
-              <strong className="podium-team-name gold-name">{leaderboard[0].teamName}</strong>
+              <strong className="podium-team-name gold-name">{leaderboard[0]?.teamName || leaderboard[0]?.team_name}</strong>
               <span className="podium-stats gold-stats">
-                {leaderboard[0].points} pts · {leaderboard[0].kills} kills
+                {leaderboard[0]?.points ?? 0} pts · {leaderboard[0]?.kills ?? 0} kills
               </span>
             </div>
 
             {/* 3rd Place */}
             <div className="podium-step step-bronze">
               <div className="podium-medal">3rd Place</div>
-              <strong className="podium-team-name">{leaderboard[2].teamName}</strong>
+              <strong className="podium-team-name">{leaderboard[2]?.teamName || leaderboard[2]?.team_name}</strong>
               <span className="podium-stats">
-                {leaderboard[2].points} pts · {leaderboard[2].kills} kills
+                {leaderboard[2]?.points ?? 0} pts · {leaderboard[2]?.kills ?? 0} kills
               </span>
             </div>
           </div>
@@ -45,64 +49,18 @@ export function TournamentLeaderboardView({
       {/* Live State Note */}
       {!isCompleted && leaderboard.length > 0 && (
         <div className="live-leaderboard-notice">
-          <span>Final standings will appear when the tournament is completed.</span>
+          <span>Overall standings aggregated across tournament rounds and matches.</span>
         </div>
       )}
 
       {/* Standings Table */}
-      {!leaderboard.length ? (
-        <div className="leaderboard-empty-panel">
-          <p className="empty-state">
-            Leaderboard will appear once match results are published.
-          </p>
-        </div>
-      ) : (
-        <div className="table-responsive-box">
-          <table className="esports-table leaderboard-table">
-            <thead>
-              <tr>
-                <th style={{ width: '80px' }}>Rank</th>
-                <th>Team</th>
-                <th style={{ width: '100px', textAlign: 'center' }}>Kills</th>
-                <th style={{ width: '120px', textAlign: 'right' }}>Total Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((row, index) => {
-                const rank = row.rank || index + 1;
-                const isMyTeam = playerTeam && (playerTeam.id === row.teamId || playerTeam.name === row.teamName);
-
-                return (
-                  <tr
-                    key={`${row.teamId}-${index}`}
-                    className={`leaderboard-row ${isMyTeam ? 'is-my-team-row' : ''}`}
-                  >
-                    <td className="rank-cell">
-                      <span className={`rank-badge rank-${rank <= 3 ? rank : 'other'}`}>
-                        #{rank}
-                      </span>
-                    </td>
-                    <td className="team-cell">
-                      <div className="team-name-wrapper">
-                        <strong>{row.teamName}</strong>
-                        {isMyTeam && (
-                          <span className="my-team-pill">YOUR TEAM</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="kills-cell" style={{ textAlign: 'center' }}>
-                      {row.kills}
-                    </td>
-                    <td className="points-cell" style={{ textAlign: 'right' }}>
-                      <strong>{row.points}</strong>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <LeaderboardTable
+        rows={leaderboard}
+        playerTeam={playerTeam}
+        loading={loading}
+        error={error}
+        emptyMessage="Leaderboard will appear once match results are published."
+      />
     </div>
   );
 }

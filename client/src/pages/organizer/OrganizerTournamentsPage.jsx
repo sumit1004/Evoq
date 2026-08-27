@@ -487,7 +487,7 @@ export function OrganizerTournamentsPage() {
                     }}
                   >
                     <div>
-                      <div style={{ color: '#91a0b3' }}>Format</div>
+                      <div style={{ color: '#91a0b3' }}>Team Size</div>
                       <strong style={{ color: '#cdd6e2' }}>{tournament.playersPerTeam} Players / Team</strong>
                     </div>
                     <div>
@@ -545,7 +545,7 @@ export function OrganizerTournamentsPage() {
                       style={{ flex: 1, minHeight: '36px', fontSize: '13px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       to={`/organizer/tournaments/${tournament.id}`}
                     >
-                      Open Hub →
+                      Open Tournament →
                     </Link>
                     <Link
                       className="button ghost-button"

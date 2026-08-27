@@ -1,4 +1,5 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
+import * as scoringService from '../services/scoringService.js';
 import { createOrganizerTournament, deleteTournament, getTournament, getTournamentQrFile, listAvailableTournaments, listOrganizerTournaments, updateOrganizerTournament } from '../services/tournamentService.js';
 import {
   buildTournamentRegistrationWorkbook,
@@ -120,4 +121,14 @@ export const bulkRejectController = asyncHandler(async (req, res) => {
   const registrationIds = Array.isArray(req.body.registrationIds) ? req.body.registrationIds.map(Number) : [];
   const result = await bulkRejectRegistrations(registrationIds, req.body.rejectionReason, req.user.id);
   res.status(200).json(result);
+});
+
+export const getScoringConfigController = asyncHandler(async (req, res) => {
+  const config = await scoringService.getTournamentScoringConfig(Number(req.params.tournamentId));
+  res.status(200).json({ config });
+});
+
+export const updateScoringConfigController = asyncHandler(async (req, res) => {
+  const config = await scoringService.updateTournamentScoringConfig(Number(req.params.tournamentId), req.body, req.user.id);
+  res.status(200).json({ config });
 });

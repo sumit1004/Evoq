@@ -266,6 +266,7 @@ export function QualificationCenterView({
                         <th style={{ width: '50px' }}>Rank</th>
                         <th>Team Name</th>
                         <th style={{ textAlign: 'center', width: '60px' }}>Kills</th>
+                        <th style={{ textAlign: 'center', width: '60px' }}>Pos</th>
                         <th style={{ textAlign: 'right', width: '70px' }}>Points</th>
                       </tr>
                     </thead>
@@ -273,6 +274,7 @@ export function QualificationCenterView({
                       {leaderboard.map((row, idx) => {
                         const rank = row.rank || idx + 1;
                         const isSelected = gSet.has(Number(row.teamId));
+                        const pos = row.position !== null && row.position !== undefined ? row.position : (row.placement !== null && row.placement !== undefined ? row.placement : '-');
 
                         return (
                           <tr
@@ -300,8 +302,11 @@ export function QualificationCenterView({
                             <td className="kills-cell" style={{ textAlign: 'center' }}>
                               {row.kills}
                             </td>
+                            <td className="position-cell" style={{ textAlign: 'center', color: '#91a0b3' }}>
+                              {pos}
+                            </td>
                             <td className="points-cell" style={{ textAlign: 'right' }}>
-                              <strong>{row.points}</strong>
+                              <strong style={{ color: '#7dd3fc' }}>{row.points}</strong>
                             </td>
                           </tr>
                         );

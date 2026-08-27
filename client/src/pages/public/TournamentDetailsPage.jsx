@@ -94,13 +94,31 @@ export function TournamentDetailsPage() {
           <h1>{tournament.name}</h1>
           <p>{tournament.description || 'No description provided.'}</p>
           
+          {identity?.role === 'PLAYER' && registrations.some((r) => r.status === 'VERIFIED') && (
+            <div style={{ background: 'rgba(46, 204, 113, 0.1)', border: '1px solid rgba(46, 204, 113, 0.3)', borderRadius: '8px', padding: '16px 20px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', color: '#2ecc71', fontSize: '17px' }}>✓ Your Team is Verified & Registered!</h3>
+                <p style={{ margin: 0, color: '#cdd6e2', fontSize: '13px' }}>
+                  Open the tournament hub to access matches, schedule, room credentials, announcements, and group chat.
+                </p>
+              </div>
+              <Link
+                className="button primary-button"
+                style={{ background: '#2ecc71', color: '#0d1117', fontWeight: '800' }}
+                to={`/player/communications/${tournamentId}`}
+              >
+                Open Tournament Hub →
+              </Link>
+            </div>
+          )}
+
           <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px', marginBottom: '25px' }}>
             <div className="detail-panel" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <strong>Registration</strong>
               <span>{new Date(tournament.registrationStartAt).toLocaleString()} to {new Date(tournament.registrationEndAt).toLocaleString()}</span>
             </div>
             <div className="detail-panel" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <strong>Format</strong>
+              <strong>Team Structure</strong>
               <span>{tournament.playersPerTeam} players per team · {tournament.maxTeams} teams</span>
             </div>
             <div className="detail-panel" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>

@@ -14,7 +14,9 @@ import {
   updateTournamentController,
   getTournamentQrController,
   bulkVerifyController,
-  bulkRejectController
+  bulkRejectController,
+  getScoringConfigController,
+  updateScoringConfigController
 } from '../controllers/tournamentController.js';
 import { authenticateRequest, optionalAuthentication } from '../middleware/authMiddleware.js';
 import { requireRoles } from '../middleware/authorizationMiddleware.js';
@@ -30,6 +32,8 @@ tournamentRouter.post('/', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN
 tournamentRouter.get('/:tournamentId', optionalAuthentication, validateRequest({ params: validateTournamentId }), getTournamentController);
 tournamentRouter.patch('/:tournamentId', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), uploadPaymentQr, validateRequest({ params: validateTournamentId, body: validateTournamentPatch }), updateTournamentController);
 tournamentRouter.delete('/:tournamentId', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), validateRequest({ params: validateTournamentId }), deleteTournamentController);
+tournamentRouter.get('/:tournamentId/scoring-config', optionalAuthentication, validateRequest({ params: validateTournamentId }), getScoringConfigController);
+tournamentRouter.put('/:tournamentId/scoring-config', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), validateRequest({ params: validateTournamentId }), updateScoringConfigController);
 tournamentRouter.get('/:tournamentId/registrations', authenticateRequest, requireRoles('PLAYER', 'ORGANIZER'), validateRequest({ params: validateTournamentId }), listRegistrationsController);
 tournamentRouter.post('/:tournamentId/registrations', authenticateRequest, requireRoles('PLAYER'), uploadPaymentEvidence, validateRequest({ params: validateTournamentId, body: validateRegistrationCreate }), createRegistrationController);
 tournamentRouter.get('/:tournamentId/registrations/export', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), validateRequest({ params: validateTournamentId }), exportRegistrationsController);

@@ -12,6 +12,8 @@ import {
   recalculateLeaderboard,
   updateMatch
 } from '../../services/competitionApi.js';
+import { fetchScoringConfig } from '../../services/tournamentApi.js';
+import { LeaderboardTable } from '../../components/common/LeaderboardTable.jsx';
 
 export function OrganizerMatchResultsPage() {
   const { tournamentId, roundId, groupId, matchId } = useParams();
@@ -22,6 +24,7 @@ export function OrganizerMatchResultsPage() {
   const [teams, setTeams] = useState([]);
   const [results, setResults] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [scoringConfig, setScoringConfig] = useState({ scoringMode: 'KILLS_AND_POSITION', killPointsPerKill: 1, positionPoints: [] });
 
   // Match Configuration Forms
   const [roomForm, setRoomForm] = useState({ roomId: '', roomPassword: '', instructions: '' });
@@ -60,21 +63,27 @@ export function OrganizerMatchResultsPage() {
       });
 
       const currentGroupId = currentMatch.groupId || groupId;
-      const [groupResult, resultResult, leaderboardResult] = await Promise.all([
+      const effectiveTournamentId = tournamentId || currentMatch.tournamentId;
+
+      const [groupResult, resultResult, leaderboardResult, scoringResult] = await Promise.all([
         fetchGroup(currentGroupId),
         fetchResults(matchId),
-        fetchMatchLeaderboard(matchId)
+        fetchMatchLeaderboard(matchId),
+        effectiveTournamentId ? fetchScoringConfig(effectiveTournamentId).catch(() => null) : null,
       ]);
 
       setGroup(groupResult.group);
       setTeams(groupResult.group?.teams || []);
       setResults(resultResult.results || []);
       setLeaderboard(leaderboardResult.leaderboard || []);
+      if (scoringResult?.config) {
+        setScoringConfig(scoringResult.config);
+      }
       setState({ loading: false, submitting: false, error: '', notice: '' });
     } catch (error) {
       setState({ loading: false, submitting: false, error: error.message || 'Failed to load match workspace.', notice: '' });
     }
-  }, [matchId, groupId]);
+  }, [matchId, groupId, tournamentId]);
 
   useEffect(() => {
     loadData();
@@ -269,6 +278,16 @@ export function OrganizerMatchResultsPage() {
             <p style={{ margin: 0, color: '#91a0b3', fontSize: '14px' }}>
               Manage lobby room credentials, timing schedule, player notifications, and result scoring.
             </p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '12px', fontSize: '13px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span style={{ color: '#91a0b3' }}>Room ID: </span>
+                <strong style={{ color: match.roomId ? '#2ecc71' : '#64748b' }}>{match.roomId || 'Not Configured'}</strong>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span style={{ color: '#91a0b3' }}>Room Password: </span>
+                <strong style={{ color: match.roomPassword ? '#f6c453' : '#64748b' }}>{match.roomPassword || 'Not Configured'}</strong>
+              </div>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -399,7 +418,12 @@ export function OrganizerMatchResultsPage() {
       <div className="competition-layout">
         {/* Score Submission Form */}
         <form className="team-form" onSubmit={handleScoreSubmit}>
-          <h2>Record Result</h2>
+          <h2>Record Team Result</h2>
+          <div style={{ marginBottom: '12px', padding: '8px 12px', background: 'rgba(125, 211, 252, 0.08)', borderRadius: '6px', border: '1px solid rgba(125, 211, 252, 0.2)', fontSize: '12px', color: '#7dd3fc' }}>
+            Mode: <strong>{scoringConfig.scoringMode === 'TOTAL_SCORE' ? 'Total Score (Direct)' : 'Kills + Position'}</strong>
+            {scoringConfig.scoringMode !== 'TOTAL_SCORE' && ` (${scoringConfig.killPointsPerKill} pt/kill)`}
+          </div>
+
           <label htmlFor="result-team">Team</label>
           <select
             id="result-team"
@@ -416,43 +440,90 @@ export function OrganizerMatchResultsPage() {
             ))}
           </select>
 
-          <label htmlFor="result-points">Points</label>
-          <input
-            id="result-points"
-            type="number"
-            min="0"
-            step="0.01"
-            value={scoreForm.points}
-            onChange={(e) => setScoreForm({ ...scoreForm, points: e.target.value })}
-            disabled={state.submitting || match.status === 'COMPLETED'}
-            required
-          />
+          {scoringConfig.scoringMode === 'TOTAL_SCORE' ? (
+            <div>
+              <label htmlFor="result-points">Total Score</label>
+              <input
+                id="result-points"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Enter final score"
+                value={scoreForm.points}
+                onChange={(e) => setScoreForm({ ...scoreForm, points: e.target.value })}
+                disabled={state.submitting || match.status === 'COMPLETED'}
+                required
+              />
+              <div style={{ marginTop: '8px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span style={{ fontSize: '13px', color: '#91a0b3' }}>Total Points: </span>
+                <strong style={{ color: '#f6c453', fontSize: '16px' }}>{Number(scoreForm.points || 0)} PTS</strong>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="result-kills">Kills</label>
+              <input
+                id="result-kills"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={scoreForm.kills}
+                onChange={(e) => setScoreForm({ ...scoreForm, kills: e.target.value })}
+                disabled={state.submitting || match.status === 'COMPLETED'}
+                required
+              />
 
-          <label htmlFor="result-kills">Kills</label>
-          <input
-            id="result-kills"
-            type="number"
-            min="0"
-            value={scoreForm.kills}
-            onChange={(e) => setScoreForm({ ...scoreForm, kills: e.target.value })}
-            disabled={state.submitting || match.status === 'COMPLETED'}
-            required
-          />
+              <label htmlFor="result-placement">Finishing Position</label>
+              <input
+                id="result-placement"
+                type="number"
+                min="1"
+                placeholder="e.g. 1"
+                value={scoreForm.placement}
+                onChange={(e) => setScoreForm({ ...scoreForm, placement: e.target.value })}
+                disabled={state.submitting || match.status === 'COMPLETED'}
+                required
+              />
 
-          <label htmlFor="result-placement">Placement <span>(optional)</span></label>
-          <input
-            id="result-placement"
-            type="number"
-            min="1"
-            value={scoreForm.placement}
-            onChange={(e) => setScoreForm({ ...scoreForm, placement: e.target.value })}
-            disabled={state.submitting || match.status === 'COMPLETED'}
-          />
+              {/* Dynamic Live Score Calculation Preview */}
+              {(() => {
+                const killsNum = Math.max(0, Number(scoreForm.kills) || 0);
+                const posNum = Number(scoreForm.placement);
+                const kPts = killsNum * Number(scoringConfig.killPointsPerKill || 1);
+                const posObj = scoringConfig.positionPoints?.find((p) => p.position === posNum);
+                const pPts = posObj ? Number(posObj.points) : 0;
+                const totalPts = kPts + (posObj ? pPts : 0);
+
+                return (
+                  <div style={{ margin: '12px 0', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ fontSize: '11px', color: '#91a0b3', textTransform: 'uppercase', marginBottom: '6px', fontWeight: '700' }}>
+                      Live Score Preview
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#cdd6e2', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Kill Points ({killsNum} × {scoringConfig.killPointsPerKill}):</span>
+                        <strong>{kPts} pts</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Position Points (Pos #{posNum || '-'}):</span>
+                        <strong>{posObj ? `${pPts} pts` : (posNum ? '⚠️ Unconfigured' : '-')}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', marginTop: '4px' }}>
+                        <span style={{ fontWeight: '700', color: '#fff' }}>TOTAL POINTS:</span>
+                        <strong style={{ color: '#f6c453', fontSize: '16px' }}>{totalPts} PTS</strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           <label htmlFor="result-text">Notes <span>(optional)</span></label>
           <textarea
             id="result-text"
-            rows="3"
+            rows="2"
             value={scoreForm.resultText}
             onChange={(e) => setScoreForm({ ...scoreForm, resultText: e.target.value })}
             disabled={state.submitting || match.status === 'COMPLETED'}
@@ -468,40 +539,36 @@ export function OrganizerMatchResultsPage() {
             disabled={state.submitting || match.status === 'COMPLETED'}
           />
 
-          <button className="button primary-button" type="submit" disabled={state.submitting || match.status === 'COMPLETED'}>
+          <button className="button primary-button" type="submit" disabled={state.submitting || match.status === 'COMPLETED'} style={{ marginTop: '12px' }}>
             {state.submitting ? 'Saving result...' : 'Save Result'}
           </button>
         </form>
 
         {/* Leaderboard & Results Table */}
         <div className="team-list">
-          <div className="section-heading">
+          <div className="section-heading" style={{ marginBottom: '16px' }}>
             <h2>Match Standings</h2>
             <button className="button secondary-button" type="button" onClick={handleRecalculate} disabled={state.submitting || !results.length}>
               Recalculate Leaderboard
             </button>
           </div>
 
-          {!leaderboard.length && <p className="empty-state">No leaderboard entries calculated yet.</p>}
-          {leaderboard.map((entry) => (
-            <div className="competition-item" key={entry.teamId}>
-              <div>
-                <span className="tournament-status">Rank {entry.rank}</span>
-                <h3>{entry.teamName}</h3>
-              </div>
-              <strong>{entry.points} pts · {entry.kills} kills</strong>
-            </div>
-          ))}
+          <LeaderboardTable
+            rows={leaderboard}
+            scoringMode={scoringConfig.scoringMode}
+            emptyMessage="No leaderboard entries calculated yet."
+          />
 
-          <h2 style={{ marginTop: '24px' }}>Results Recorded ({results.length})</h2>
+          <h2 style={{ marginTop: '28px', marginBottom: '14px' }}>Results Recorded ({results.length})</h2>
           {!results.length && <p className="empty-state">No results entered yet.</p>}
           {results.map((res) => (
             <div className="competition-item" key={res.id}>
               <div>
                 <h3>{res.teamName}</h3>
                 <p>
-                  {res.points} points · {res.kills} kills
-                  {res.placement ? ` · Place #${res.placement}` : ''}
+                  <strong>{res.points} points</strong>
+                  {scoringConfig.scoringMode !== 'TOTAL_SCORE' && ` · ${res.kills} kills`}
+                  {scoringConfig.scoringMode !== 'TOTAL_SCORE' && res.placement ? ` · Place #${res.placement}` : ''}
                 </p>
               </div>
               <span>{res.hasMedia ? 'Proof attached' : 'No proof'}</span>

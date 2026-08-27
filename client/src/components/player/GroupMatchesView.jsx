@@ -1,10 +1,23 @@
+import { useState } from 'react';
+
 export function GroupMatchesView({
   matches = [],
+  activeGroup = null,
   playerTeam,
   expandedMatchResults = {},
   matchResultsData = {},
   onToggleMatchResult,
 }) {
+  const [copiedField, setCopiedField] = useState(null);
+
+  const handleCopy = (text, fieldKey) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(fieldKey);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
+
   if (!matches.length) {
     return (
       <div className="matches-empty-panel">
@@ -21,6 +34,8 @@ export function GroupMatchesView({
         const isExpanded = expandedMatchResults[match.id];
         const results = matchResultsData[match.id] || [];
         const isLive = match.status === 'LIVE';
+        const effectiveRoomId = match.roomId || activeGroup?.roomId;
+        const effectiveRoomPassword = match.roomPassword || activeGroup?.roomPassword;
 
         return (
           <div
@@ -41,6 +56,56 @@ export function GroupMatchesView({
                     ? new Date(match.scheduledAt).toLocaleString()
                     : 'Schedule pending'}
                 </span>
+
+                {/* Match Room ID & Room Password Credentials Strip */}
+                {(effectiveRoomId || effectiveRoomPassword) && (
+                  <div
+                    className="match-room-mini-strip"
+                    style={{
+                      marginTop: '12px',
+                      display: 'flex',
+                      gap: '16px',
+                      flexWrap: 'wrap',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    <div className="mini-credential-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="mini-label" style={{ fontSize: '12px', color: '#91a0b3' }}>Room ID:</span>
+                      <strong className="mini-value" style={{ color: effectiveRoomId ? '#2ecc71' : '#64748b', fontSize: '13px' }}>
+                        {effectiveRoomId || 'Pending'}
+                      </strong>
+                      {effectiveRoomId && (
+                        <button
+                          className="button secondary-button mini-copy-btn"
+                          type="button"
+                          style={{ minHeight: '26px', padding: '0 8px', fontSize: '11px' }}
+                          onClick={() => handleCopy(effectiveRoomId, `roomId-${match.id}`)}
+                        >
+                          {copiedField === `roomId-${match.id}` ? '✓ Copied' : 'Copy'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="mini-credential-item" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="mini-label" style={{ fontSize: '12px', color: '#91a0b3' }}>Password:</span>
+                      <strong className="mini-value password-text" style={{ color: effectiveRoomPassword ? '#f6c453' : '#64748b', fontSize: '13px' }}>
+                        {effectiveRoomPassword || 'Pending'}
+                      </strong>
+                      {effectiveRoomPassword && (
+                        <button
+                          className="button secondary-button mini-copy-btn"
+                          type="button"
+                          style={{ minHeight: '26px', padding: '0 8px', fontSize: '11px' }}
+                          onClick={() => handleCopy(effectiveRoomPassword, `roomPass-${match.id}`)}
+                        >
+                          {copiedField === `roomPass-${match.id}` ? '✓ Copied' : 'Copy'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="match-card-action">

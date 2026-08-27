@@ -18,13 +18,27 @@ import { GroupLeaderboardView } from '../../components/player/GroupLeaderboardVi
 import { TournamentLeaderboardView } from '../../components/player/TournamentLeaderboardView.jsx';
 import { GroupChatView } from '../../components/GroupChatView.jsx';
 
-const PRIMARY_TABS = ['overview', 'group', 'leaderboard'];
+const PRIMARY_TABS = ['overview', 'group', 'leaderboard', 'announcements'];
 const GROUP_SUBTABS = ['overview', 'matches', 'leaderboard', 'chat'];
 
 export function TournamentHubPage() {
+  const navigate = useNavigate();
   const { tournamentId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const { joinTournament, leaveTournament, on, connected } = useSocket();
+
+  // Section Refs for Direct Auto-Scroll
+  const overviewRef = useRef(null);
+  const matchesRef = useRef(null);
+  const leaderboardRef = useRef(null);
+  const chatRef = useRef(null);
+
+  const subtabRefs = {
+    overview: overviewRef,
+    matches: matchesRef,
+    leaderboard: leaderboardRef,
+    chat: chatRef,
+  };
 
   // Navigation URL state
   const activeTab = PRIMARY_TABS.includes(searchParams.get('tab'))
@@ -42,14 +56,19 @@ export function TournamentHubPage() {
     } else if (tab !== 'group') {
       next.delete('subtab');
     }
-    setSearchParams(next);
+    setSearchParams(next, { replace: true });
   };
 
-  const setSubtab = (subtab) => {
+  const setSubtab = (subtab, shouldScroll = true) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', 'group');
     next.set('subtab', subtab);
-    setSearchParams(next);
+    setSearchParams(next, { replace: true });
+    if (shouldScroll) {
+      setTimeout(() => {
+        subtabRefs[subtab]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 40);
+    }
   };
 
   // State
@@ -451,39 +470,48 @@ export function TournamentHubPage() {
 
               {/* Subtab 1: Group Overview */}
               {activeSubtab === 'overview' && (
-                <GroupOverviewView
-                  group={activeGroup}
-                  playerTeam={playerTeam}
-                  onNavigate={(sub) => setSubtab(sub)}
-                />
+                <div ref={overviewRef} className="group-workspace-section-panel">
+                  <GroupOverviewView
+                    group={activeGroup}
+                    playerTeam={playerTeam}
+                    onNavigate={(sub) => setSubtab(sub)}
+                  />
+                </div>
               )}
 
               {/* Subtab 2: Matches inside Group */}
               {activeSubtab === 'matches' && (
-                <GroupMatchesView
-                  matches={groupMatches.length ? groupMatches : activeGroup.matches}
-                  playerTeam={playerTeam}
-                  expandedMatchResults={expandedMatchResults}
-                  matchResultsData={matchResultsData}
-                  onToggleMatchResult={toggleMatchResult}
-                />
+                <div ref={matchesRef} className="group-workspace-section-panel">
+                  <GroupMatchesView
+                    matches={groupMatches.length ? groupMatches : activeGroup.matches}
+                    activeGroup={activeGroup}
+                    playerTeam={playerTeam}
+                    expandedMatchResults={expandedMatchResults}
+                    matchResultsData={matchResultsData}
+                    onToggleMatchResult={toggleMatchResult}
+                  />
+                </div>
               )}
 
               {/* Subtab 3: Group Standings */}
               {activeSubtab === 'leaderboard' && (
-                <GroupLeaderboardView
-                  leaderboard={groupLeaderboard}
-                  playerTeam={playerTeam}
-                />
+                <div ref={leaderboardRef} className="group-workspace-section-panel">
+                  <GroupLeaderboardView
+                    leaderboard={groupLeaderboard}
+                    playerTeam={playerTeam}
+                  />
+                </div>
               )}
 
               {/* Subtab 4: Group Chat */}
               {activeSubtab === 'chat' && (
-                <GroupChatView
-                  groupId={activeGroup.id}
-                  groupName={activeGroup.name}
-                  isCompleted={isCompleted}
-                />
+                <div ref={chatRef} className="group-workspace-section-panel">
+                  <GroupChatView
+                    groupId={activeGroup.id}
+                    groupName={activeGroup.name}
+                    isCompleted={isCompleted}
+                  />
+                </div>
               )}
             </>
           )}
