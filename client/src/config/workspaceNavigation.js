@@ -8,20 +8,61 @@ export function getPlayerNavigation() {
   ];
 }
 
-export function getOrganizerNavigation({ tournamentId } = {}) {
-  return [
+export function getOrganizerNavigation({ tournamentId, isScout = false, effectiveAccess = null } = {}) {
+  const permissions = new Set(effectiveAccess?.permissions || []);
+  const allowed = effectiveAccess?.allowedModules || {};
+
+  const items = [
     { label: 'Overview', to: '/organizer', active: (path) => path === '/organizer' },
     { label: 'Tournaments', to: '/organizer/tournaments', active: (path) => path.startsWith('/organizer/tournaments') || (path.startsWith('/tournaments/') && !path.includes('/scout/')) },
-    ...(tournamentId ? [
-      { label: 'Tournament Hub', to: `/organizer/tournaments/${tournamentId}`, active: (path) => path === `/organizer/tournaments/${tournamentId}` },
-      { label: 'Registrations', to: `/organizer/tournaments/${tournamentId}/registrations`, active: (path) => path.includes('/registrations') },
-      { label: 'Announcements', to: `/organizer/tournaments/${tournamentId}/announcements`, active: (path) => path.includes('/announcements') },
-      { label: 'Complete tournament', to: `/organizer/tournaments/${tournamentId}/complete`, active: (path) => path.includes('/complete') },
-    ] : []),
-    { label: 'Scouts', to: '/organizer/scouts', active: (path) => path.startsWith('/organizer/scouts') },
-    { label: 'Notifications', notification: true },
-    { label: 'History', to: '/history', active: (path) => path.startsWith('/history') },
   ];
+
+  if (tournamentId) {
+    items.push({
+      label: 'Tournament Hub',
+      to: `/organizer/tournaments/${tournamentId}`,
+      active: (path) => path === `/organizer/tournaments/${tournamentId}`
+    });
+
+    const canViewReg = !isScout || allowed.registrations || permissions.has('VIEW_REGISTRATIONS');
+    items.push({
+      label: 'Registrations',
+      to: `/organizer/tournaments/${tournamentId}/registrations`,
+      active: (path) => path.includes('/registrations'),
+      locked: isScout && !canViewReg,
+    });
+
+    const canViewAnnounce = !isScout || allowed.announcements || permissions.has('VIEW_ANNOUNCEMENTS');
+    items.push({
+      label: 'Announcements',
+      to: `/organizer/tournaments/${tournamentId}/announcements`,
+      active: (path) => path.includes('/announcements'),
+      locked: isScout && !canViewAnnounce,
+    });
+
+    if (!isScout) {
+      items.push({
+        label: 'Complete tournament',
+        to: `/organizer/tournaments/${tournamentId}/complete`,
+        active: (path) => path.includes('/complete')
+      });
+    }
+  }
+
+  if (!isScout) {
+    items.push({
+      label: 'Scouts',
+      to: '/organizer/scouts',
+      active: (path) => path.startsWith('/organizer/scouts')
+    });
+  }
+
+  items.push(
+    { label: 'Notifications', notification: true },
+    { label: 'History', to: '/history', active: (path) => path.startsWith('/history') }
+  );
+
+  return items;
 }
 
 export function getScoutNavigation({ tournamentId } = {}) {

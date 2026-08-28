@@ -222,3 +222,80 @@ export async function assertTournamentAuthorization(tournamentId, userId, {
 
   return context;
 }
+
+/**
+ * Returns normalized effective access for a user and tournament.
+ * Used by controllers and frontend management workspace.
+ */
+export async function getEffectiveTournamentAccess(userId, tournamentId, connection) {
+  const context = await resolveTournamentStaffContext(tournamentId, userId, connection);
+  if (!context || !context.tournament) return null;
+
+  if (context.isOwner) {
+    return {
+      userId: Number(userId),
+      tournamentId: Number(tournamentId),
+      role: 'ORGANIZER',
+      isOwner: true,
+      isStaff: true,
+      isScout: false,
+      allGroups: true,
+      permissions: Object.values(PERMISSIONS),
+      assignedGroupIds: [],
+      allowedModules: {
+        overview: true,
+        rounds: true,
+        registrations: true,
+        leaderboard: true,
+        announcements: true,
+        settings: true,
+        scouts: true,
+      },
+    };
+  }
+
+  if (context.isStaff && context.isScout) {
+    const perms = context.permissions;
+    return {
+      userId: Number(userId),
+      tournamentId: Number(tournamentId),
+      role: 'SCOUT',
+      isOwner: false,
+      isStaff: true,
+      isScout: true,
+      allGroups: context.allGroups,
+      permissions: Array.from(perms),
+      assignedGroupIds: Array.from(context.assignedGroupIds),
+      allowedModules: {
+        overview: perms.has(PERMISSIONS.VIEW_TOURNAMENT) || perms.size > 0,
+        rounds: perms.has(PERMISSIONS.VIEW_ROUNDS) || perms.has(PERMISSIONS.VIEW_GROUPS) || perms.has(PERMISSIONS.VIEW_MATCHES),
+        registrations: perms.has(PERMISSIONS.VIEW_REGISTRATIONS),
+        leaderboard: perms.has(PERMISSIONS.VIEW_LEADERBOARD),
+        announcements: perms.has(PERMISSIONS.VIEW_ANNOUNCEMENTS),
+        settings: perms.has(PERMISSIONS.MANAGE_SETTINGS),
+        scouts: false,
+      },
+    };
+  }
+
+  return {
+    userId: Number(userId),
+    tournamentId: Number(tournamentId),
+    role: 'PLAYER',
+    isOwner: false,
+    isStaff: false,
+    isScout: false,
+    allGroups: false,
+    permissions: [],
+    assignedGroupIds: [],
+    allowedModules: {
+      overview: false,
+      rounds: false,
+      registrations: false,
+      leaderboard: false,
+      announcements: false,
+      settings: false,
+      scouts: false,
+    },
+  };
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { fetchTournament, updateTournament, fetchRegistrations, deleteTournament } from '../../services/tournamentApi.js';
+import { Link, useNavigate, useParams, useSearchParams, useOutletContext } from 'react-router-dom';
+import { fetchTournament, updateTournament, fetchRegistrations, deleteTournament, fetchTournamentAccess } from '../../services/tournamentApi.js';
 import {
   fetchRounds,
   createRound,
@@ -27,6 +27,23 @@ export function OrganizerTournamentPage() {
   const { tournamentId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const { joinTournament, leaveTournament, on } = useSocket();
+  const outletCtx = useOutletContext() || {};
+
+  const [localAccess, setLocalAccess] = useState(outletCtx.effectiveAccess || null);
+  const isScout = outletCtx.isScout ?? (localAccess?.role === 'SCOUT');
+
+  useEffect(() => {
+    if (!outletCtx.effectiveAccess && tournamentId) {
+      fetchTournamentAccess(tournamentId)
+        .then((data) => setLocalAccess(data?.access || null))
+        .catch(() => setLocalAccess(null));
+    } else if (outletCtx.effectiveAccess) {
+      setLocalAccess(outletCtx.effectiveAccess);
+    }
+  }, [tournamentId, outletCtx.effectiveAccess]);
+
+  const effectiveAccess = outletCtx.effectiveAccess || localAccess;
+  const permissions = new Set(effectiveAccess?.permissions || []);
 
   const activeTab = ORGANIZER_TABS.includes(searchParams.get('tab'))
     ? searchParams.get('tab')
@@ -270,6 +287,24 @@ export function OrganizerTournamentPage() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
           <div>
+            {isScout && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                marginBottom: '12px',
+              }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 8px #38bdf8', display: 'inline-block' }} />
+                <span style={{ fontSize: '12px', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.05em' }}>
+                  SCOUT MODE · RESTRICTED ACCESS ({permissions.size} CAPABILITIES GRANTED)
+                </span>
+              </div>
+            )}
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
               <span className={`status-badge ${tournament.status.toLowerCase().replaceAll('_', '-')}`} style={{ fontSize: '12px', padding: '4px 10px' }}>
                 {tournament.status.replaceAll('_', ' ')}
@@ -294,37 +329,41 @@ export function OrganizerTournamentPage() {
 
           {/* Quick Lifecycle Action Controls */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {tournament.status === 'DRAFT' && (
+            {!isScout && tournament.status === 'DRAFT' && (
               <button className="button primary-button" onClick={() => handleTransition('REGISTRATION_OPEN')}>
                 Open Registration
               </button>
             )}
-            {tournament.status === 'REGISTRATION_OPEN' && (
+            {!isScout && tournament.status === 'REGISTRATION_OPEN' && (
               <button className="button secondary-button" onClick={() => handleTransition('REGISTRATION_CLOSED')}>
                 Close Registration
               </button>
             )}
-            {tournament.status === 'REGISTRATION_CLOSED' && (
+            {(!isScout || permissions.has('START_TOURNAMENT')) && tournament.status === 'REGISTRATION_CLOSED' && (
               <button className="button primary-button" onClick={() => handleTransition('LIVE')}>
                 Start Tournament (LIVE)
               </button>
             )}
-            {tournament.status === 'LIVE' && (
+            {(!isScout || permissions.has('COMPLETE_TOURNAMENT')) && tournament.status === 'LIVE' && (
               <button className="button secondary-button" style={{ color: '#f6c453', borderColor: 'rgba(246, 196, 83, 0.4)' }} onClick={handleCompleteTournament}>
                 Finalize Tournament
               </button>
             )}
-            <Link className="button ghost-button" to={`/organizer/tournaments/${tournamentId}/registrations`}>
-              Registrations ({registrations.length})
-            </Link>
-            <button
-              className="button ghost-button danger-text"
-              style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}
-              type="button"
-              onClick={() => setShowDeleteModal(true)}
-            >
-              Delete Tournament
-            </button>
+            {(!isScout || permissions.has('VIEW_REGISTRATIONS')) && (
+              <Link className="button ghost-button" to={`/organizer/tournaments/${tournamentId}/registrations`}>
+                Registrations ({registrations.length})
+              </Link>
+            )}
+            {!isScout && (
+              <button
+                className="button ghost-button danger-text"
+                style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+              >
+                Delete Tournament
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -342,16 +381,16 @@ export function OrganizerTournamentPage() {
           Rounds & Groups ({rounds.length})
         </button>
         <button role="tab" aria-selected={activeTab === 'registrations'} className={activeTab === 'registrations' ? 'hub-tab active' : 'hub-tab'} onClick={() => setTab('registrations')}>
-          Registrations ({registrations.length})
+          Registrations ({registrations.length}) {isScout && !permissions.has('VIEW_REGISTRATIONS') && '🔒'}
         </button>
         <button role="tab" aria-selected={activeTab === 'leaderboard'} className={activeTab === 'leaderboard' ? 'hub-tab active' : 'hub-tab'} onClick={() => setTab('leaderboard')}>
-          Leaderboard
+          Leaderboard {isScout && !permissions.has('VIEW_LEADERBOARD') && '🔒'}
         </button>
         <button role="tab" aria-selected={activeTab === 'announcements'} className={activeTab === 'announcements' ? 'hub-tab active' : 'hub-tab'} onClick={() => setTab('announcements')}>
-          Communications ({announcements.length})
+          Communications ({announcements.length}) {isScout && !permissions.has('VIEW_ANNOUNCEMENTS') && '🔒'}
         </button>
         <button role="tab" aria-selected={activeTab === 'settings'} className={activeTab === 'settings' ? 'hub-tab active' : 'hub-tab'} onClick={() => setTab('settings')}>
-          Settings
+          Settings {isScout && !permissions.has('MANAGE_SETTINGS') && '🔒'}
         </button>
       </nav>
 
@@ -481,6 +520,8 @@ export function OrganizerTournamentPage() {
         <OrganizerRoundsHub
           tournamentId={tournamentId}
           tournamentStatus={tournament?.status}
+          effectiveAccess={effectiveAccess}
+          isScout={isScout}
         />
       )}
 
@@ -488,124 +529,184 @@ export function OrganizerTournamentPage() {
       {/* TAB 3: REGISTRATIONS */}
       {/* ========================================================================= */}
       {activeTab === 'registrations' && (
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '24px', textAlign: 'center' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', color: '#fff' }}>Registration & Payment Management</h3>
-          <p style={{ color: '#91a0b3', maxWidth: '600px', margin: '0 auto 20px auto' }}>
-            Verify player teams, review submitted transaction IDs & payment screenshots with lightbox zoom, and export Excel / CSV spreadsheets with full member snapshots.
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
-            <Link className="button primary-button" to={`/organizer/tournaments/${tournamentId}/registrations`}>
-              Open Registration Console ({registrations.length} Applications) →
-            </Link>
+        isScout && !permissions.has('VIEW_REGISTRATIONS') ? (
+          <div style={{ padding: '60px 20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔒</div>
+            <h3 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Registration Access Restricted</h3>
+            <p style={{ color: '#91a0b3', maxWidth: '480px', margin: '0 auto 16px' }}>
+              You do not have permission to view or verify player registrations for this tournament. Please contact the tournament organizer to request registration access.
+            </p>
+            <span style={{ fontSize: '11px', color: '#38bdf8', background: 'rgba(56,189,248,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(56,189,248,0.2)' }}>
+              REQUIRES: VIEW_REGISTRATIONS
+            </span>
           </div>
-        </div>
+        ) : (
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '24px', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', color: '#fff' }}>Registration & Payment Management</h3>
+            <p style={{ color: '#91a0b3', maxWidth: '600px', margin: '0 auto 20px auto' }}>
+              Verify player teams, review submitted transaction IDs & payment screenshots with lightbox zoom, and export Excel / CSV spreadsheets with full member snapshots.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
+              <Link className="button primary-button" to={`/organizer/tournaments/${tournamentId}/registrations`}>
+                Open Registration Console ({registrations.length} Applications) →
+              </Link>
+            </div>
+          </div>
+        )
       )}
 
       {/* ========================================================================= */}
       {/* TAB 4: LEADERBOARD */}
       {/* ========================================================================= */}
       {activeTab === 'leaderboard' && (
-        <LeaderboardTable
-          rows={leaderboard}
-          title="Overall Tournament Standings"
-          subtitle="Calculated across all completed rounds and match points"
-          emptyMessage="No leaderboard data calculated yet."
-        />
+        isScout && !permissions.has('VIEW_LEADERBOARD') ? (
+          <div style={{ padding: '60px 20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔒</div>
+            <h3 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Leaderboard Access Restricted</h3>
+            <p style={{ color: '#91a0b3', maxWidth: '480px', margin: '0 auto 16px' }}>
+              You do not have permission to view tournament leaderboard standings.
+            </p>
+            <span style={{ fontSize: '11px', color: '#38bdf8', background: 'rgba(56,189,248,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(56,189,248,0.2)' }}>
+              REQUIRES: VIEW_LEADERBOARD
+            </span>
+          </div>
+        ) : (
+          <LeaderboardTable
+            rows={leaderboard}
+            title="Overall Tournament Standings"
+            subtitle="Calculated across all completed rounds and match points"
+            emptyMessage="No leaderboard data calculated yet."
+          />
+        )
       )}
 
       {/* ========================================================================= */}
       {/* TAB 5: COMMUNICATIONS & ANNOUNCEMENTS */}
       {/* ========================================================================= */}
       {activeTab === 'announcements' && (
-        <div>
-          <form onSubmit={handleCreateAnnouncement} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '20px', marginBottom: '25px' }}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#fff' }}>Broadcast Tournament Announcement</h3>
-            <textarea
-              style={{ width: '100%', minHeight: '80px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#fff', padding: '10px', marginBottom: '10px' }}
-              placeholder="Write an announcement message to broadcast to all tournament participants..."
-              value={announcementText}
-              onChange={(e) => setAnnouncementText(e.target.value)}
-              required
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="button primary-button" type="submit" disabled={state.submitting || !announcementText.trim()}>
-                Broadcast Announcement
-              </button>
-            </div>
-          </form>
-
-          <div className="registration-list">
-            <h3 style={{ fontSize: '16px', color: '#fff', marginBottom: '10px' }}>Announcement History</h3>
-            {announcements.length === 0 ? (
-              <p className="empty-state">No announcements published yet.</p>
-            ) : (
-              announcements.map((a) => (
-                <article className="registration-item" key={a.id}>
-                  <div>
-                    <strong style={{ color: '#7dd3fc' }}>{a.creatorName}</strong>
-                    <p style={{ margin: '4px 0 0 0', color: '#fff' }}>{a.message}</p>
-                    <time style={{ fontSize: '12px', color: '#91a0b3' }}>{new Date(a.createdAt).toLocaleString()}</time>
-                  </div>
-                  <button className="text-button danger-text" onClick={() => handleDeleteAnnouncement(a.id)}>
-                    Delete
-                  </button>
-                </article>
-              ))
-            )}
+        isScout && !permissions.has('VIEW_ANNOUNCEMENTS') ? (
+          <div style={{ padding: '60px 20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔒</div>
+            <h3 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Communications Restricted</h3>
+            <p style={{ color: '#91a0b3', maxWidth: '480px', margin: '0 auto 16px' }}>
+              You do not have permission to view official tournament broadcasts.
+            </p>
+            <span style={{ fontSize: '11px', color: '#38bdf8', background: 'rgba(56,189,248,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(56,189,248,0.2)' }}>
+              REQUIRES: VIEW_ANNOUNCEMENTS
+            </span>
           </div>
-        </div>
+        ) : (
+          <div>
+            {(!isScout || permissions.has('CREATE_ANNOUNCEMENTS')) && (
+              <form onSubmit={handleCreateAnnouncement} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '20px', marginBottom: '25px' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: '#fff' }}>Broadcast Tournament Announcement</h3>
+                <textarea
+                  style={{ width: '100%', minHeight: '80px', background: '#0d1117', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: '#fff', padding: '10px', marginBottom: '10px' }}
+                  placeholder="Write an announcement message to broadcast to all tournament participants..."
+                  value={announcementText}
+                  onChange={(e) => setAnnouncementText(e.target.value)}
+                  required
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button className="button primary-button" type="submit" disabled={state.submitting || !announcementText.trim()}>
+                    Broadcast Announcement
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="registration-list">
+              <h3 style={{ fontSize: '16px', color: '#fff', marginBottom: '10px' }}>Announcement History</h3>
+              {announcements.length === 0 ? (
+                <p className="empty-state">No announcements published yet.</p>
+              ) : (
+                announcements.map((a) => (
+                  <article className="registration-item" key={a.id}>
+                    <div>
+                      <strong style={{ color: '#7dd3fc' }}>{a.creatorName}</strong>
+                      <p style={{ margin: '4px 0 0 0', color: '#fff' }}>{a.message}</p>
+                      <time style={{ fontSize: '12px', color: '#91a0b3' }}>{new Date(a.createdAt).toLocaleString()}</time>
+                    </div>
+                    {!isScout && (
+                      <button className="text-button danger-text" onClick={() => handleDeleteAnnouncement(a.id)}>
+                        Delete
+                      </button>
+                    )}
+                  </article>
+                ))
+              )}
+            </div>
+          </div>
+        )
       )}
 
       {/* ========================================================================= */}
       {/* TAB 6: SETTINGS & ARCHIVE */}
       {/* ========================================================================= */}
       {activeTab === 'settings' && (
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '20px' }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: '#fff' }}>Tournament Configuration</h3>
-          <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
-            <div className="detail-panel"><strong>Game</strong><span>{tournament.game || 'Free Fire'}</span></div>
-            <div className="detail-panel"><strong>Max Teams</strong><span>{tournament.maxTeams}</span></div>
-            <div className="detail-panel"><strong>Players per Team</strong><span>{tournament.playersPerTeam}</span></div>
-            <div className="detail-panel"><strong>Entry Type</strong><span>{tournament.entryType}</span></div>
-            <div className="detail-panel"><strong>Entry Fee</strong><span>₹{tournament.entryFee || 0}</span></div>
-          </div>
-
-          <div style={{ marginBottom: '25px' }}>
-            <PointConfigurationSection
-              tournamentId={tournamentId}
-              isCompleted={tournament.status === 'COMPLETED'}
-            />
-          </div>
-
-          <div style={{ paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', marginBottom: '25px' }}>
-            <h4 style={{ color: '#ff6b6b', margin: '0 0 8px 0' }}>Finalize and Archive Tournament</h4>
-            <p style={{ color: '#91a0b3', fontSize: '13px', margin: '0 0 15px 0' }}>
-              Finalizing marks the tournament as COMPLETED and preserves all historical leaderboards, match stats, and certificates while making live controls read-only.
+        isScout && !permissions.has('MANAGE_SETTINGS') ? (
+          <div style={{ padding: '60px 20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔒</div>
+            <h3 style={{ color: '#fff', fontSize: '20px', marginBottom: '8px' }}>Tournament Settings Restricted</h3>
+            <p style={{ color: '#91a0b3', maxWidth: '480px', margin: '0 auto 16px' }}>
+              Point configurations and tournament parameters can only be modified by authorized staff.
             </p>
-            <button
-              className="button secondary-button"
-              style={{ color: '#ff6b6b', borderColor: 'rgba(231,76,60,0.3)' }}
-              onClick={handleCompleteTournament}
-              disabled={tournament.status === 'COMPLETED'}
-            >
-              {tournament.status === 'COMPLETED' ? 'Tournament is Archived' : 'Complete & Archive Tournament'}
-            </button>
+            <span style={{ fontSize: '11px', color: '#38bdf8', background: 'rgba(56,189,248,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(56,189,248,0.2)' }}>
+              REQUIRES: MANAGE_SETTINGS
+            </span>
           </div>
+        ) : (
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: '#fff' }}>Tournament Configuration</h3>
+            <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+              <div className="detail-panel"><strong>Game</strong><span>{tournament.game || 'Free Fire'}</span></div>
+              <div className="detail-panel"><strong>Max Teams</strong><span>{tournament.maxTeams}</span></div>
+              <div className="detail-panel"><strong>Players per Team</strong><span>{tournament.playersPerTeam}</span></div>
+              <div className="detail-panel"><strong>Entry Type</strong><span>{tournament.entryType}</span></div>
+              <div className="detail-panel"><strong>Entry Fee</strong><span>₹{tournament.entryFee || 0}</span></div>
+            </div>
 
-          <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '20px' }}>
-            <h4 style={{ color: '#ef4444', margin: '0 0 8px 0', fontSize: '16px' }}>Delete Tournament</h4>
-            <p style={{ color: '#cdd6e2', fontSize: '13px', margin: '0 0 15px 0', lineHeight: 1.5 }}>
-              Permanently delete this tournament, along with its rounds, groups, matches, announcements, and registrations. This action cannot be undone.
-            </p>
-            <button
-              className="button danger-button"
-              type="button"
-              onClick={() => setShowDeleteModal(true)}
-            >
-              Delete This Tournament
-            </button>
+            <div style={{ marginBottom: '25px' }}>
+              <PointConfigurationSection
+                tournamentId={tournamentId}
+                isCompleted={tournament.status === 'COMPLETED'}
+              />
+            </div>
+
+            {(!isScout || permissions.has('COMPLETE_TOURNAMENT')) && (
+              <div style={{ paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', marginBottom: '25px' }}>
+                <h4 style={{ color: '#ff6b6b', margin: '0 0 8px 0' }}>Finalize and Archive Tournament</h4>
+                <p style={{ color: '#91a0b3', fontSize: '13px', margin: '0 0 15px 0' }}>
+                  Finalizing marks the tournament as COMPLETED and preserves all historical leaderboards, match stats, and certificates while making live controls read-only.
+                </p>
+                <button
+                  className="button secondary-button"
+                  style={{ color: '#ff6b6b', borderColor: 'rgba(231,76,60,0.3)' }}
+                  onClick={handleCompleteTournament}
+                  disabled={tournament.status === 'COMPLETED'}
+                >
+                  {tournament.status === 'COMPLETED' ? 'Tournament is Archived' : 'Complete & Archive Tournament'}
+                </button>
+              </div>
+            )}
+
+            {!isScout && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '20px' }}>
+                <h4 style={{ color: '#ef4444', margin: '0 0 8px 0', fontSize: '16px' }}>Delete Tournament</h4>
+                <p style={{ color: '#cdd6e2', fontSize: '13px', margin: '0 0 15px 0', lineHeight: 1.5 }}>
+                  Permanently delete this tournament, along with its rounds, groups, matches, announcements, and registrations. This action cannot be undone.
+                </p>
+                <button
+                  className="button danger-button"
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  Delete This Tournament
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )
       )}
 
       {/* Delete Tournament Modal */}

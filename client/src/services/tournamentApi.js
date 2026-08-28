@@ -53,4 +53,5 @@ export async function downloadPaymentEvidence(registrationId) {
 export const bulkVerifyRegistrations = (registrationIds) => request(() => apiClient.post('/registrations/bulk-verify', { registrationIds }));
 export const bulkRejectRegistrations = (registrationIds, rejectionReason) => request(() => apiClient.post('/registrations/bulk-reject', { registrationIds, rejectionReason }));
 export const fetchPaymentSummary = (tournamentId) => request(() => apiClient.get(`/tournaments/${tournamentId}/payment-summary`));
+export const fetchTournamentAccess = (tournamentId) => request(() => apiClient.get(`/tournaments/${tournamentId}/access`));
 

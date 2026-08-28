@@ -12,8 +12,8 @@ describe('workspaceRouting utility', () => {
     expect(resolveInitialWorkspaceRoute({ id: 1, role: 'ORGANIZER', isScout: true })).toBe('/organizer');
   });
 
-  it('redirects players with active scout assignments to /scout', () => {
-    expect(resolveInitialWorkspaceRoute({ id: 2, role: 'PLAYER', isScout: true, scoutCount: 1 })).toBe('/scout');
+  it('redirects players with active scout assignments to management tournaments', () => {
+    expect(resolveInitialWorkspaceRoute({ id: 2, role: 'PLAYER', isScout: true, scoutCount: 1 })).toBe('/organizer/tournaments');
     expect(
       resolveInitialWorkspaceRoute({
         id: 2,
@@ -21,7 +21,7 @@ describe('workspaceRouting utility', () => {
         isScout: false,
         scoutAssignments: [{ id: 1, tournamentId: 4, status: 'ACTIVE' }],
       })
-    ).toBe('/scout');
+    ).toBe('/organizer/tournaments/4');
   });
 
   it('redirects standard players without scout assignments to /player/dashboard', () => {

@@ -84,6 +84,22 @@ function WorkspaceLink({ item, onNavigate }) {
   const active = item.active ? item.active(location.pathname) : location.pathname === item.to;
   const icon = NAV_ICONS[item.label] || null;
 
+  if (item.locked) {
+    return (
+      <div
+        className="workspace-link is-locked"
+        title={`${item.label} (Permission locked)`}
+        style={{ opacity: 0.45, cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+          {icon && <span className="workspace-link-icon">{icon}</span>}
+          <span className="workspace-link-text">{item.label}</span>
+        </span>
+        <span style={{ fontSize: '12px', opacity: 0.8 }} title="Permission required">🔒</span>
+      </div>
+    );
+  }
+
   return (
     <Link
       className={`workspace-link${active ? ' active' : ''}`}

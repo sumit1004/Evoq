@@ -59,6 +59,11 @@ function LegacyMatchRedirect() {
   return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds${roundId ? `&round=${roundId}` : ''}&section=groups`} replace />;
 }
 
+function ScoutTournamentRedirect() {
+  const { tournamentId } = useParams();
+  return <Navigate to={`/organizer/tournaments/${tournamentId}`} replace />;
+}
+
 export function AppContent() {
 
   const { serverError, retry } = useAuth();
@@ -109,9 +114,9 @@ export function AppContent() {
           <Route path="tournaments/:tournamentId/groups/:groupId/chat" element={<GroupChatPage />} />
         </Route>
         <Route path="/organizer/*" element={<OrganizerWorkspacePage />} />
-        <Route path="/scout" element={<ScoutWorkspacePage />} />
-        <Route path="/scout/tournaments" element={<ScoutWorkspacePage />} />
-        <Route path="/scout/tournaments/:tournamentId" element={<ScoutTournamentPage />} />
+        <Route path="/scout" element={<Navigate to="/organizer/tournaments" replace />} />
+        <Route path="/scout/tournaments" element={<Navigate to="/organizer/tournaments" replace />} />
+        <Route path="/scout/tournaments/:tournamentId" element={<ScoutTournamentRedirect />} />
         <Route path="history" element={<AuthenticatedLayout />}>
           <Route index element={<HistoryPage />} />
           <Route path=":historyId" element={<HistoryDetailPage />} />

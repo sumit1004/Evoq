@@ -15,7 +15,11 @@ export function resolveInitialWorkspaceRoute(identity) {
     Number(identity.scoutCount) > 0 ||
     (Array.isArray(identity.scoutAssignments) && identity.scoutAssignments.length > 0)
   ) {
-    return '/scout';
+    if (Array.isArray(identity.scoutAssignments) && identity.scoutAssignments.length === 1) {
+      const tourneyId = identity.scoutAssignments[0].tournamentId || identity.scoutAssignments[0].id;
+      if (tourneyId) return `/organizer/tournaments/${tourneyId}`;
+    }
+    return '/organizer/tournaments';
   }
   return '/player/dashboard';
 }

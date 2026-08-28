@@ -16,7 +16,8 @@ import {
   bulkVerifyController,
   bulkRejectController,
   getScoringConfigController,
-  updateScoringConfigController
+  updateScoringConfigController,
+  getEffectiveAccessController
 } from '../controllers/tournamentController.js';
 import { authenticateRequest, optionalAuthentication } from '../middleware/authMiddleware.js';
 import { requireRoles } from '../middleware/authorizationMiddleware.js';
@@ -32,6 +33,7 @@ export const tournamentRouter = Router();
 tournamentRouter.get('/', optionalAuthentication, listTournaments);
 tournamentRouter.post('/', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), uploadPaymentQr, validateRequest({ body: validateTournamentCreate }), createTournamentController);
 tournamentRouter.get('/:tournamentId', optionalAuthentication, validateRequest({ params: validateTournamentId }), getTournamentController);
+tournamentRouter.get('/:tournamentId/access', authenticateRequest, validateRequest({ params: validateTournamentId }), getEffectiveAccessController);
 tournamentRouter.patch('/:tournamentId', authenticateRequest, requireRoles('PLAYER', 'ORGANIZER', 'ADMIN'), uploadPaymentQr, validateRequest({ params: validateTournamentId, body: validateTournamentPatch }), updateTournamentController);
 tournamentRouter.delete('/:tournamentId', authenticateRequest, requireRoles('ORGANIZER', 'ADMIN'), validateRequest({ params: validateTournamentId }), deleteTournamentController);
 tournamentRouter.get('/:tournamentId/scoring-config', optionalAuthentication, validateRequest({ params: validateTournamentId }), getScoringConfigController);

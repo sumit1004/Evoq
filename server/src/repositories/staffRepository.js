@@ -458,3 +458,12 @@ export async function listAuditLogs(tournamentId, { limit = 50, offset = 0 } = {
     total: totalRows[0]?.count || 0,
   };
 }
+
+export async function countActiveStaffAssignments(userId, connection = pool) {
+  const [rows] = await connection.query(
+    "SELECT COUNT(*) AS count FROM tournament_staff WHERE user_id = ? AND status = 'ACTIVE'",
+    [userId]
+  );
+  return Number(rows[0]?.count || 0);
+}
+

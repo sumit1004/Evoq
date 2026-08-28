@@ -16,6 +16,9 @@ import {
   bulkRejectRegistrations
 } from '../services/registrationService.js';
 
+import * as authorizationService from '../services/authorizationService.js';
+import { errorResponses } from '../errors/AppError.js';
+
 export const listTournaments = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 12;
@@ -27,7 +30,7 @@ export const listTournaments = asyncHandler(async (req, res) => {
   const filters = { page, limit, search, status, entryType, sort };
 
   let result;
-  if (req.user?.role === 'ORGANIZER' && req.query.scope === 'mine') {
+  if (req.user && (req.user.role === 'ORGANIZER' || req.query.scope === 'mine')) {
     result = await listOrganizerTournaments(req.user.id, filters);
   } else {
     result = await listAvailableTournaments(filters, req.user?.id);
@@ -46,7 +49,23 @@ export const listTournaments = asyncHandler(async (req, res) => {
 
 export const getTournamentController = asyncHandler(async (req, res) => {
   const ownOrganizer = req.user?.role === 'ORGANIZER' ? req.user.id : undefined;
-  res.status(200).json({ tournament: await getTournament(Number(req.params.tournamentId), { organizerId: ownOrganizer, publicAccess: !ownOrganizer }) });
+  res.status(200).json({
+    tournament: await getTournament(Number(req.params.tournamentId), {
+      organizerId: ownOrganizer,
+      userId: req.user?.id,
+      publicAccess: !req.user,
+    }),
+  });
+});
+
+export const getEffectiveAccessController = asyncHandler(async (req, res) => {
+  const tournamentId = Number(req.params.tournamentId);
+  const userId = req.user.id;
+  const access = await authorizationService.getEffectiveTournamentAccess(userId, tournamentId);
+  if (!access) {
+    throw errorResponses.notFound('Tournament not found');
+  }
+  res.status(200).json({ access });
 });
 
 export const createTournamentController = asyncHandler(async (req, res) => {

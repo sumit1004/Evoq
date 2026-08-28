@@ -24,8 +24,8 @@ export async function listTournaments({ organizerId, viewerId, search, status, e
   params.push(viewerId || null);
 
   if (organizerId) {
-    whereClauses.push('t.organizer_id = ?');
-    params.push(organizerId);
+    whereClauses.push('(t.organizer_id = ? OR t.id IN (SELECT tournament_id FROM tournament_staff WHERE user_id = ? AND status = \'ACTIVE\'))');
+    params.push(organizerId, organizerId);
   } else {
     // Public available: exclude DRAFT unless it belongs to the viewerId
     if (viewerId) {

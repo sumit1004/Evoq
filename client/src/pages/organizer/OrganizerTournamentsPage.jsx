@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createTournament, deleteTournament, fetchOrganizerTournaments } from '../../services/tournamentApi.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 const initialForm = {
   name: '',
@@ -21,6 +22,8 @@ const initialForm = {
 
 export function OrganizerTournamentsPage() {
   const navigate = useNavigate();
+  const { identity } = useAuth();
+  const isScout = identity?.role !== 'ORGANIZER';
   const [tournaments, setTournaments] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deleteConfirmTournament, setDeleteConfirmTournament] = useState(null);
@@ -169,33 +172,37 @@ export function OrganizerTournamentsPage() {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(125, 211, 252, 0.1)', padding: '4px 10px', borderRadius: '20px', marginBottom: '10px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7dd3fc', display: 'inline-block' }} />
               <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#7dd3fc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Organizer Tournament Console
+                {isScout ? 'Scout Operations Console' : 'Organizer Tournament Console'}
               </span>
             </div>
             <h1 style={{ margin: '0 0 8px 0', fontSize: 'clamp(1.8rem, 2.4rem, 2.8rem)', color: '#fff', fontWeight: 800 }}>
-              Tournaments
+              {isScout ? 'Assigned Tournaments' : 'Tournaments'}
             </h1>
             <p style={{ margin: 0, color: '#91a0b3', fontSize: '14px', maxWidth: '640px', lineHeight: 1.5 }}>
-              Create, configure, monitor brackets, manage registrations, and operate live competitive esports tournaments.
+              {isScout
+                ? 'Manage brackets, track live matches, enter scores, and coordinate groups for your assigned tournaments.'
+                : 'Create, configure, monitor brackets, manage registrations, and operate live competitive esports tournaments.'}
             </p>
           </div>
 
-          <button
-            className="button primary-button"
-            style={{
-              padding: '12px 24px',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              boxShadow: '0 4px 16px rgba(125, 211, 252, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-          >
-            <span style={{ fontSize: '18px', lineHeight: 1 }}>+</span> Create Tournament
-          </button>
+          {!isScout && (
+            <button
+              className="button primary-button"
+              style={{
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 16px rgba(125, 211, 252, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <span style={{ fontSize: '18px', lineHeight: 1 }}>+</span> Create Tournament
+            </button>
+          )}
         </div>
 
         {/* Stats Strip */}
