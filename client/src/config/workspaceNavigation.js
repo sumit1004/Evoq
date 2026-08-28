@@ -57,10 +57,12 @@ export function getOrganizerNavigation({ tournamentId, isScout = false, effectiv
     });
   }
 
-  items.push(
-    { label: 'Notifications', notification: true },
-    { label: 'History', to: '/history', active: (path) => path.startsWith('/history') }
-  );
+  if (!isScout) {
+    items.push(
+      { label: 'Notifications', notification: true },
+      { label: 'History', to: '/history', active: (path) => path.startsWith('/history') }
+    );
+  }
 
   return items;
 }
@@ -71,8 +73,7 @@ export function getScoutNavigation({ tournamentId } = {}) {
     ...(tournamentId ? [
       { label: 'Scout Console', to: `/scout/tournaments/${tournamentId}`, active: (path) => path.startsWith(`/scout/tournaments/${tournamentId}`) },
     ] : []),
-    { label: 'Notifications', notification: true },
-    { label: 'History', to: '/history', active: (path) => path.startsWith('/history') },
   ];
 }
+
 

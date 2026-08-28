@@ -10,6 +10,7 @@ function Status({ value }) { return <span className={`dashboard-status status-${
 
 export function OrganizerOverviewPage() {
   const { identity } = useAuth();
+  const isScout = identity?.role !== 'ORGANIZER';
   const { on } = useSocket();
   const [dashboard, setDashboard] = useState(null);
   const [state, setState] = useState({ loading: true, error: '' });
@@ -187,28 +188,30 @@ export function OrganizerOverviewPage() {
             </section>
           )}
 
-          <section className="dashboard-section">
-            <div className="dashboard-section-head">
-              <div><span className="section-label">Updates</span><h2>Recent Activity</h2></div>
-              <Link className="text-link" to="/notifications">View all {unreadNotifications > 0 ? `(${unreadNotifications})` : ''}</Link>
-            </div>
-            {!recentActivity.length ? (
-               <div className="dashboard-empty"><p>No recent activity.</p></div>
-            ) : (
-              <div className="activity-list">
-                {recentActivity.map(a => (
-                  <div className="activity-item compact-activity" key={a.id}>
-                    <span className="activity-dot" />
-                    <div>
-                      <strong>{a.type.replaceAll('_', ' ')}</strong>
-                      <p>{a.content}</p>
-                    </div>
-                    <time>{new Date(a.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</time>
-                  </div>
-                ))}
+          {!isScout && (
+            <section className="dashboard-section">
+              <div className="dashboard-section-head">
+                <div><span className="section-label">Updates</span><h2>Recent Activity</h2></div>
+                <Link className="text-link" to="/notifications">View all {unreadNotifications > 0 ? `(${unreadNotifications})` : ''}</Link>
               </div>
-            )}
-          </section>
+              {!recentActivity.length ? (
+                 <div className="dashboard-empty"><p>No recent activity.</p></div>
+              ) : (
+                <div className="activity-list">
+                  {recentActivity.map(a => (
+                    <div className="activity-item compact-activity" key={a.id}>
+                      <span className="activity-dot" />
+                      <div>
+                        <strong>{a.type.replaceAll('_', ' ')}</strong>
+                        <p>{a.content}</p>
+                      </div>
+                      <time>{new Date(a.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</time>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </div>
     </section>
