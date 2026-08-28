@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { resolveInitialWorkspaceRoute } from '../../utils/workspaceRouting.js';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -19,7 +20,8 @@ export function LoginPage() {
     setState({ loading: true, error: '', fields: {} });
     try {
       const identity = await login(form);
-      navigate(identity.role === 'ORGANIZER' ? '/organizer' : '/player');
+      const destination = resolveInitialWorkspaceRoute(identity);
+      navigate(destination);
     } catch (error) {
       setState({ loading: false, error: error.message, fields: error.details?.body || {} });
     }

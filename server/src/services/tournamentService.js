@@ -49,9 +49,30 @@ export async function listOrganizerTournaments(organizerId, filters = {}) {
   return { tournaments, total };
 }
 
-export async function getTournament(tournamentId, { organizerId, publicAccess = false } = {}) {
+import { assertTournamentAuthorization, PERMISSIONS } from './authorizationService.js';
+import * as staffRepo from '../repositories/staffRepository.js';
+
+export async function getTournament(tournamentId, { organizerId, publicAccess = false, userId } = {}) {
   const row = await findTournament(tournamentId);
-  if (!row || (publicAccess && row.status === 'DRAFT') || (organizerId && row.organizer_id !== organizerId)) throw errorResponses.notFound('Tournament not found');
+  if (!row || (publicAccess && row.status === 'DRAFT')) {
+    throw errorResponses.notFound('Tournament not found');
+  }
+
+  if (organizerId && row.organizer_id !== organizerId) {
+    if (userId) {
+      try {
+        const staff = await assertTournamentAuthorization(tournamentId, userId, {
+          permission: PERMISSIONS.VIEW_TOURNAMENT,
+        });
+        if (!staff.isStaff) throw errorResponses.notFound('Tournament not found');
+      } catch {
+        throw errorResponses.notFound('Tournament not found');
+      }
+    } else {
+      throw errorResponses.notFound('Tournament not found');
+    }
+  }
+
   return withPrizes(row);
 }
 
@@ -78,30 +99,38 @@ async function validatePaymentSettings(input, organizerId) {
 
 export async function createOrganizerTournament(input, organizerId) {
   await validatePaymentSettings(input, organizerId);
+  const org = await staffRepo.ensureDefaultOrganization(organizerId);
   const id = await createTournament({
     ...input,
     organizerId,
+    organizationId: org.id,
     entryFee: input.entryType === 'FREE' ? 0 : Number(input.entryFee),
   });
   return getTournament(id, { organizerId });
 }
 
-export async function updateOrganizerTournament(tournamentId, input, organizerId) {
-  const current = await findTournament(tournamentId);
-  if (!current || current.organizer_id !== organizerId) throw errorResponses.notFound('Tournament not found');
-  if (current.status === 'COMPLETED') throw errorResponses.conflict('Completed tournaments are read-only');
-  if (input.status && input.status !== current.status && transitions[current.status] !== input.status) throw errorResponses.conflict(`Invalid tournament transition from ${current.status} to ${input.status}`);
-  if (input.status === 'COMPLETED') throw errorResponses.conflict('Tournament completion is handled after competition finalization');
+export async function updateOrganizerTournament(tournamentId, input, userId) {
+  const authContext = await assertTournamentAuthorization(tournamentId, userId, {
+    permission: input.status ? PERMISSIONS.START_TOURNAMENT : PERMISSIONS.EDIT_TOURNAMENT,
+    isWrite: true,
+  });
+  const current = authContext.tournament;
+
+  if (input.status && input.status !== current.status && transitions[current.status] !== input.status) {
+    throw errorResponses.conflict(`Invalid tournament transition from ${current.status} to ${input.status}`);
+  }
+  if (input.status === 'COMPLETED') {
+    throw errorResponses.conflict('Tournament completion is handled after competition finalization');
+  }
   
   const merged = { ...current, ...input };
-  // map database underscore fields to camelCase for validation compatibility
   merged.entryType = merged.entry_type;
   merged.entryFee = merged.entry_fee;
   merged.paymentMethod = merged.payment_method;
   merged.upiId = merged.upi_id;
 
   if (input.entryType !== undefined || input.entryFee !== undefined || input.paymentMethod !== undefined || input.upiId !== undefined) {
-    await validatePaymentSettings(merged, organizerId);
+    await validatePaymentSettings(merged, current.organizer_id);
   }
 
   await updateTournament(tournamentId, {
@@ -109,7 +138,18 @@ export async function updateOrganizerTournament(tournamentId, input, organizerId
     name: input.name?.trim(),
     entryFee: input.entryType === 'FREE' ? 0 : input.entryFee,
   });
-  return getTournament(tournamentId, { organizerId });
+
+  await staffRepo.insertAuditLog({
+    tournamentId: Number(tournamentId),
+    userId,
+    actorId: userId,
+    action: input.status ? 'TOURNAMENT_STATUS_UPDATED' : 'TOURNAMENT_UPDATED',
+    entityType: 'TOURNAMENT',
+    entityId: Number(tournamentId),
+    metadata: input,
+  });
+
+  return getTournament(tournamentId, { organizerId: current.organizer_id, userId });
 }
 
 export async function getTournamentQrFile(tournamentId) {

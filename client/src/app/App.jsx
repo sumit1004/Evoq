@@ -22,6 +22,9 @@ import { OrganizerAnnouncementsPage } from '../pages/organizer/OrganizerAnnounce
 import { GroupChatPage } from '../pages/organizer/GroupChatPage.jsx';
 import { NotificationsPage } from '../pages/public/NotificationsPage.jsx';
 import { OrganizerRegistrationsPage } from '../pages/organizer/OrganizerRegistrationsPage.jsx';
+import { OrganizerScoutsPage } from '../pages/organizer/OrganizerScoutsPage.jsx';
+import { ScoutWorkspacePage } from '../pages/scout/ScoutWorkspacePage.jsx';
+import { ScoutTournamentPage } from '../pages/scout/ScoutTournamentPage.jsx';
 import { PlayerGroupPage } from '../pages/player/PlayerGroupPage.jsx';
 import { TournamentHubPage } from '../pages/player/TournamentHubPage.jsx';
 import { MyTournamentsPage } from '../pages/player/MyTournamentsPage.jsx';
@@ -90,6 +93,7 @@ export function AppContent() {
         <Route path="/organizer" element={<OrganizerWorkspacePage />}>
           <Route index element={<OrganizerOverviewPage />} />
           <Route path="tournaments" element={<OrganizerTournamentsPage />} />
+          <Route path="scouts" element={<OrganizerScoutsPage />} />
           <Route path="tournaments/:tournamentId" element={<OrganizerTournamentPage />} />
           <Route path="tournaments/:tournamentId/registrations" element={<OrganizerRegistrationsPage />} />
           <Route path="tournaments/:tournamentId/rounds" element={<TournamentRoundsRedirect />} />
@@ -105,6 +109,9 @@ export function AppContent() {
           <Route path="tournaments/:tournamentId/groups/:groupId/chat" element={<GroupChatPage />} />
         </Route>
         <Route path="/organizer/*" element={<OrganizerWorkspacePage />} />
+        <Route path="/scout" element={<ScoutWorkspacePage />} />
+        <Route path="/scout/tournaments" element={<ScoutWorkspacePage />} />
+        <Route path="/scout/tournaments/:tournamentId" element={<ScoutTournamentPage />} />
         <Route path="history" element={<AuthenticatedLayout />}>
           <Route index element={<HistoryPage />} />
           <Route path=":historyId" element={<HistoryDetailPage />} />

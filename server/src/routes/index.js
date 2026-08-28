@@ -10,6 +10,7 @@ import { archiveRouter } from './archiveRoutes.js';
 import { communicationRouter } from './communicationRoutes.js';
 import { organizerRouter } from './organizerRoutes.js';
 import { paymentRouter } from './paymentRoutes.js';
+import { scoutRouter } from './scoutRoutes.js';
 
 export const apiRouter = Router();
 
@@ -24,4 +25,6 @@ apiRouter.use('/', resultsRouter);
 apiRouter.use('/', archiveRouter);
 apiRouter.use('/', communicationRouter);
 apiRouter.use('/organizer', organizerRouter);
+apiRouter.use('/scout', scoutRouter);
 apiRouter.use('/', paymentRouter);
+

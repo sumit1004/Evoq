@@ -66,4 +66,26 @@ describe('App routing', () => {
     expect(screen.getByRole('heading', { name: 'Create a team' })).not.toBeNull();
     window.localStorage.clear();
   });
+
+  it('renders the scout workspace for an authenticated scout', () => {
+    window.localStorage.setItem(
+      'evoq.identity',
+      JSON.stringify({
+        id: 5,
+        name: 'Scout Ace',
+        role: 'PLAYER',
+        isScout: true,
+        scoutCount: 1,
+        scoutAssignments: [{ id: 10, tournamentId: 2, tournamentName: 'Valorant Cup', status: 'ACTIVE' }],
+      })
+    );
+    render(
+      <MemoryRouter initialEntries={['/scout']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Assigned Tournaments' })).not.toBeNull();
+    window.localStorage.clear();
+  });
 });

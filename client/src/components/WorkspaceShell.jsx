@@ -63,6 +63,20 @@ const NAV_ICONS = {
       <polyline points="20 6 9 17 4 12"></polyline>
     </svg>
   ),
+  Scouts: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+      <circle cx="9" cy="7" r="4"></circle>
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+    </svg>
+  ),
+  'Scout Console': (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+    </svg>
+  ),
 };
 
 function WorkspaceLink({ item, onNavigate }) {
@@ -115,6 +129,11 @@ export function WorkspaceShell({ label, items, children }) {
   const userInitial = identity?.name ? identity.name.charAt(0).toUpperCase() : 'U';
   const roleLabel = identity?.role === 'ORGANIZER' ? 'ORGANIZER' : 'PLAYER';
   const homeLink = identity?.role === 'ORGANIZER' ? '/organizer' : '/player/dashboard';
+  const hasScoutRole = Boolean(identity?.isScout || identity?.scoutCount > 0);
+
+  const isScoutArea = location.pathname.startsWith('/scout');
+  const isOrganizerArea = location.pathname.startsWith('/organizer');
+  const isPlayerArea = !isScoutArea && !isOrganizerArea;
 
   return (
     <div className="workspace-shell">
@@ -162,8 +181,44 @@ export function WorkspaceShell({ label, items, children }) {
             </div>
             <div className="workspace-user-info">
               <strong title={identity?.name}>{identity?.name || 'User'}</strong>
-              <span className="workspace-role-pill">{roleLabel}</span>
+              <div className="workspace-roles-wrap">
+                {isOrganizerArea ? (
+                  <span className="workspace-role-pill organizer-badge">ORGANIZER</span>
+                ) : isScoutArea ? (
+                  <span className="workspace-role-pill scout-badge">SCOUT</span>
+                ) : (
+                  <span className="workspace-role-pill player-badge">PLAYER</span>
+                )}
+              </div>
             </div>
+          </div>
+
+          {/* Active Workspace Context Indicator */}
+          <div className="workspace-context-card">
+            <div className="workspace-context-header">
+              <span className={`context-status-dot ${isOrganizerArea ? 'dot-blue' : isScoutArea ? 'dot-amber' : 'dot-green'}`} />
+              <span className="context-label">
+                {isOrganizerArea
+                  ? 'ORGANIZER WORKSPACE'
+                  : isScoutArea
+                  ? 'SCOUT CONSOLE'
+                  : 'PLAYER WORKSPACE'}
+              </span>
+            </div>
+
+            {/* Optional Cross-Role Switcher (Only if user holds both Staff roles) */}
+            {isOrganizerArea && hasScoutRole && (
+              <Link to="/scout" className="context-switch-link" onClick={close}>
+                <span>Switch to Scout Console</span>
+                <span className="arrow-icon">→</span>
+              </Link>
+            )}
+            {isScoutArea && identity?.role === 'ORGANIZER' && (
+              <Link to="/organizer" className="context-switch-link" onClick={close}>
+                <span>Switch to Organizer Hub</span>
+                <span className="arrow-icon">→</span>
+              </Link>
+            )}
           </div>
 
           {/* Workspace Menu Section */}

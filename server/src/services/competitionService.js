@@ -1,13 +1,29 @@
 import { errorResponses } from '../errors/AppError.js';
 import * as repository from '../repositories/competitionRepository.js';
 import * as commRepo from '../repositories/communicationRepository.js';
+import * as staffRepo from '../repositories/staffRepository.js';
 import { countRoundQualifications } from './resultsService.js';
 import { emitRealtime, realtimeEvents, realtimeRooms } from '../utils/realtimeHub.js';
+import { assertTournamentAuthorization, PERMISSIONS } from './authorizationService.js';
 
 const roundTransitions = { NOT_STARTED: ['IN_PROGRESS'], IN_PROGRESS: ['COMPLETED'] };
 const groupTransitions = { NOT_STARTED: ['IN_PROGRESS'], IN_PROGRESS: ['COMPLETED'] };
 const matchTransitions = { SCHEDULED: ['LIVE'], LIVE: ['COMPLETED'] };
-const owner = (context, organizerId) => { if (!context || context.organizer_id !== organizerId) throw errorResponses.notFound('Competition resource not found'); };
+
+async function assertAccess(context, userId, { permission = null, isWrite = false, groupId = null } = {}) {
+  if (!context) throw errorResponses.notFound('Competition resource not found');
+  if (context.organizer_id === userId) {
+    return { isOwner: true, isStaff: true, permissions: new Set(Object.values(PERMISSIONS)) };
+  }
+  const tournamentId = context.tournament_id || context.id;
+  const targetGroupId = groupId || context.group_id || null;
+  return assertTournamentAuthorization(tournamentId, userId, {
+    permission,
+    isWrite,
+    groupId: targetGroupId,
+  });
+}
+
 const liveTournament = (context) => { if (context.tournament_status !== 'LIVE') throw errorResponses.conflict('Tournament must be LIVE for competition operations'); };
 function transition(current, next, map, label) { if (next !== current && !map[current]?.includes(next)) throw errorResponses.conflict(`Invalid ${label} transition from ${current} to ${next}`); }
 function mapError(error) {
@@ -210,9 +226,9 @@ function serializeRound(row) {
   };
 }
 
-export async function listTournamentRounds(tournamentId, organizerId) {
+export async function listTournamentRounds(tournamentId, userId) {
   const tournament = await repository.getTournamentContext(tournamentId);
-  owner(tournament, organizerId);
+  await assertAccess(tournament, userId, { permission: PERMISSIONS.VIEW_ROUNDS });
   const rounds = await repository.listRounds(tournamentId);
   return Promise.all(
     rounds.map(async (r) => {
@@ -222,9 +238,9 @@ export async function listTournamentRounds(tournamentId, organizerId) {
   );
 }
 
-export async function getRound(roundId, organizerId) {
+export async function getRound(roundId, userId) {
   const context = await repository.getRoundContext(roundId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.VIEW_ROUNDS });
   const round = await repository.findRound(roundId);
   const stats = await repository.getRoundStats(roundId);
   const groups = await repository.listGroups(roundId);
@@ -237,48 +253,201 @@ export async function getRound(roundId, organizerId) {
   };
 }
 
-export async function createTournamentRound(tournamentId, input, organizerId) {
+export async function createTournamentRound(tournamentId, input, userId) {
   const tournament = await repository.getTournamentContext(tournamentId);
-  owner(tournament, organizerId);
+  await assertAccess(tournament, userId, { permission: PERMISSIONS.CREATE_ROUND, isWrite: true });
   liveTournament({ tournament_status: tournament.status });
   const rounds = await repository.listRounds(tournamentId);
   const previous = rounds.at(-1);
   const expectedNumber = (previous?.round_number || 0) + 1;
   if (Number(input.roundNumber) !== expectedNumber) throw errorResponses.conflict(`The next round must be numbered ${expectedNumber}`);
   if (previous && previous.status !== 'COMPLETED') throw errorResponses.conflict('The previous round must be completed before creating the next round');
-  return serializeRound(await repository.createRound(tournamentId, input));
+  const created = await repository.createRound(tournamentId, input);
+  await staffRepo.insertAuditLog({
+    tournamentId: Number(tournamentId),
+    userId,
+    actorId: userId,
+    action: 'ROUND_CREATED',
+    entityType: 'ROUND',
+    entityId: created.id,
+    metadata: { roundNumber: input.roundNumber, name: input.name },
+  });
+  return serializeRound(created);
 }
 
-export async function completeRound(roundId, organizerId) {
+export async function completeRound(roundId, userId) {
   const context = await repository.getRoundContext(roundId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.COMPLETE_ROUND, isWrite: true });
   transition(context.status, 'COMPLETED', roundTransitions, 'round');
   if (await repository.countIncompleteGroups(roundId)) throw errorResponses.conflict('Every group must be completed before the round');
   if (!(await countRoundQualifications(roundId))) throw errorResponses.conflict('At least one qualifying team must be selected before the round');
-  return serializeRound(await repository.updateRound(roundId, 'COMPLETED'));
+  const updated = await repository.updateRound(roundId, 'COMPLETED');
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    userId,
+    actorId: userId,
+    action: 'ROUND_COMPLETED',
+    entityType: 'ROUND',
+    entityId: Number(roundId),
+    metadata: { roundNumber: context.round_number },
+  });
+  return serializeRound(updated);
 }
 
-export async function updateRoundStatus(roundId, status, organizerId) {
+export async function updateRoundStatus(roundId, status, userId) {
   const context = await repository.getRoundContext(roundId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.EDIT_ROUND, isWrite: true });
   liveTournament(context);
   transition(context.status, status, roundTransitions, 'round');
   return serializeRound(await repository.updateRound(roundId, status));
 }
 
 
-export async function listRoundGroups(roundId, organizerId) { const context = await repository.getRoundContext(roundId); owner(context, organizerId); return (await repository.listGroups(roundId)).map(serializeGroup); }
-export async function listPlayerTournamentGroups(tournamentId, userId) { const context = await repository.getTournamentContext(tournamentId); if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToTournament(tournamentId, userId)))) throw errorResponses.notFound('Tournament not found'); return (await repository.listPlayerTournamentGroups(tournamentId, userId)).map(serializeGroup); }
-export async function listEligibleRoundTeams(roundId, organizerId) { const context = await repository.getRoundContext(roundId); owner(context, organizerId); return repository.listEligibleTeams(roundId); }
-export async function getGroup(groupId, userId) { const context = await repository.getGroupContext(groupId); if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToGroup(groupId, userId)))) throw errorResponses.notFound('Group not found'); return serializeGroup(await repository.findGroup(groupId)); }
-export async function createRoundGroup(roundId, input, organizerId) { const context = await repository.getRoundContext(roundId); owner(context, organizerId); liveTournament(context); if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed rounds are read-only'); return serializeGroup(await repository.createGroup(roundId, input)); }
-export async function updateRoundGroup(groupId, input, organizerId) { const context = await repository.getGroupContext(groupId); owner(context, organizerId); liveTournament(context); if (context.status === 'COMPLETED' && input.status !== 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only'); if (input.status) { transition(context.status, input.status, groupTransitions, 'group'); if (input.status === 'COMPLETED' && await repository.countIncompleteMatches(groupId)) throw errorResponses.conflict('Every match must be completed before the group'); } return serializeGroup(await repository.updateGroup(groupId, input)); }
-export async function assignVerifiedTeam(groupId, teamId, organizerId) { const context = await repository.getGroupContext(groupId); owner(context, organizerId); liveTournament(context); if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only'); try { return serializeGroup(await repository.assignTeam(groupId, teamId)); } catch (error) { return mapError(error); } }
-export async function removeAssignedTeam(groupId, teamId, organizerId) { const context = await repository.getGroupContext(groupId); owner(context, organizerId); if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only'); try { return serializeGroup(await repository.removeTeam(groupId, teamId)); } catch (error) { return mapError(error); } }
-
-export async function autoAssignRoundGroups(roundId, input, organizerId) {
+export async function listRoundGroups(roundId, userId) {
   const context = await repository.getRoundContext(roundId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.VIEW_GROUPS });
+  return (await repository.listGroups(roundId)).map(serializeGroup);
+}
+
+export async function listPlayerTournamentGroups(tournamentId, userId) {
+  const context = await repository.getTournamentContext(tournamentId);
+  if (!context) throw errorResponses.notFound('Tournament not found');
+  let allowed = context.organizer_id === userId;
+  if (!allowed) {
+    allowed = await repository.isPlayerAssignedToTournament(tournamentId, userId);
+  }
+  if (!allowed) {
+    try {
+      const staffAuth = await assertTournamentAuthorization(tournamentId, userId, { permission: PERMISSIONS.VIEW_GROUPS });
+      allowed = Boolean(staffAuth.isStaff);
+    } catch {
+      allowed = false;
+    }
+  }
+  if (!allowed) throw errorResponses.notFound('Tournament not found');
+  return (await repository.listPlayerTournamentGroups(tournamentId, userId)).map(serializeGroup);
+}
+
+export async function listEligibleRoundTeams(roundId, userId) {
+  const context = await repository.getRoundContext(roundId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.ASSIGN_TEAMS });
+  return repository.listEligibleTeams(roundId);
+}
+
+export async function getGroup(groupId, userId) {
+  const context = await repository.getGroupContext(groupId);
+  if (!context) throw errorResponses.notFound('Group not found');
+  let allowed = context.organizer_id === userId;
+  if (!allowed) {
+    allowed = await repository.isPlayerAssignedToGroup(groupId, userId);
+  }
+  if (!allowed) {
+    try {
+      const staffAuth = await assertTournamentAuthorization(context.tournament_id, userId, {
+        permission: PERMISSIONS.VIEW_GROUPS,
+        groupId,
+      });
+      allowed = Boolean(staffAuth.isStaff);
+    } catch {
+      allowed = false;
+    }
+  }
+  if (!allowed) throw errorResponses.notFound('Group not found');
+  return serializeGroup(await repository.findGroup(groupId));
+}
+
+export async function createRoundGroup(roundId, input, userId) {
+  const context = await repository.getRoundContext(roundId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.CREATE_GROUP, isWrite: true });
+  liveTournament(context);
+  if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed rounds are read-only');
+  const group = await repository.createGroup(roundId, input);
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    userId,
+    actorId: userId,
+    action: 'GROUP_CREATED',
+    entityType: 'GROUP',
+    entityId: group.id,
+    metadata: { roundId, name: input.name, groupSize: input.groupSize },
+  });
+  return serializeGroup(group);
+}
+
+export async function updateRoundGroup(groupId, input, userId) {
+  const context = await repository.getGroupContext(groupId);
+  const requiredPerm = (input.room_id !== undefined || input.room_password !== undefined)
+    ? PERMISSIONS.EDIT_ROOM
+    : PERMISSIONS.EDIT_GROUP;
+  await assertAccess(context, userId, { permission: requiredPerm, isWrite: true, groupId });
+  liveTournament(context);
+  if (context.status === 'COMPLETED' && input.status !== 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only');
+  if (input.status) {
+    transition(context.status, input.status, groupTransitions, 'group');
+    if (input.status === 'COMPLETED' && await repository.countIncompleteMatches(groupId)) throw errorResponses.conflict('Every match must be completed before the group');
+  }
+  const updated = await repository.updateGroup(groupId, input);
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    groupId: Number(groupId),
+    userId,
+    actorId: userId,
+    action: input.room_id !== undefined || input.room_password !== undefined ? 'ROOM_UPDATED' : 'GROUP_UPDATED',
+    entityType: 'GROUP',
+    entityId: Number(groupId),
+    metadata: input,
+  });
+  return serializeGroup(updated);
+}
+
+export async function assignVerifiedTeam(groupId, teamId, userId) {
+  const context = await repository.getGroupContext(groupId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.ASSIGN_TEAMS, isWrite: true, groupId });
+  liveTournament(context);
+  if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only');
+  try {
+    const res = await repository.assignTeam(groupId, teamId);
+    await staffRepo.insertAuditLog({
+      tournamentId: context.tournament_id,
+      groupId: Number(groupId),
+      userId,
+      actorId: userId,
+      action: 'TEAM_ASSIGNED',
+      entityType: 'GROUP_TEAM',
+      entityId: Number(teamId),
+      metadata: { groupId, teamId },
+    });
+    return serializeGroup(res);
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function removeAssignedTeam(groupId, teamId, userId) {
+  const context = await repository.getGroupContext(groupId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.REMOVE_TEAMS, isWrite: true, groupId });
+  if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only');
+  try {
+    const res = await repository.removeTeam(groupId, teamId);
+    await staffRepo.insertAuditLog({
+      tournamentId: context.tournament_id,
+      groupId: Number(groupId),
+      userId,
+      actorId: userId,
+      action: 'TEAM_REMOVED',
+      entityType: 'GROUP_TEAM',
+      entityId: Number(teamId),
+      metadata: { groupId, teamId },
+    });
+    return serializeGroup(res);
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function autoAssignRoundGroups(roundId, input, userId) {
+  const context = await repository.getRoundContext(roundId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.ASSIGN_TEAMS, isWrite: true });
   liveTournament(context);
   if (context.is_locked || context.assignment_status === 'LOCKED') {
     throw errorResponses.conflict('Group assignment is locked and cannot be regenerated');
@@ -309,9 +478,9 @@ export async function autoAssignRoundGroups(roundId, input, organizerId) {
   }
 }
 
-export async function bulkMoveRoundTeams(roundId, input, organizerId) {
+export async function bulkMoveRoundTeams(roundId, input, userId) {
   const context = await repository.getRoundContext(roundId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.ASSIGN_TEAMS, isWrite: true });
   liveTournament(context);
   if (context.is_locked || context.assignment_status === 'LOCKED') {
     throw errorResponses.conflict('Group assignment is locked and cannot be modified');
@@ -331,9 +500,9 @@ export async function bulkMoveRoundTeams(roundId, input, organizerId) {
   }
 }
 
-export async function lockRoundAssignment(roundId, organizerId) {
+export async function lockRoundAssignment(roundId, userId) {
   const context = await repository.getRoundContext(roundId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.ASSIGN_TEAMS, isWrite: true });
   liveTournament(context);
   if (context.is_locked || context.assignment_status === 'LOCKED') {
     throw errorResponses.conflict('Group assignment is already locked');
@@ -372,9 +541,9 @@ export async function lockRoundAssignment(roundId, organizerId) {
   }
 }
 
-export async function createNextTournamentRound(tournamentId, input, organizerId) {
+export async function createNextTournamentRound(tournamentId, input, userId) {
   const tournament = await repository.getTournamentContext(tournamentId);
-  owner(tournament, organizerId);
+  await assertAccess(tournament, userId, { permission: PERMISSIONS.CREATE_ROUND, isWrite: true });
   liveTournament({ tournament_status: tournament.status });
 
   const rounds = await repository.listRounds(tournamentId);
@@ -405,7 +574,7 @@ export async function createNextTournamentRound(tournamentId, input, organizerId
   let autoAssignResult = null;
   if (input.groupCount || input.targetGroupSize || input.autoAssign) {
     try {
-      autoAssignResult = await autoAssignRoundGroups(createdRound.id, input, organizerId);
+      autoAssignResult = await autoAssignRoundGroups(createdRound.id, input, userId);
     } catch (e) {
       // Auto-assign is optional; if not feasible, round is still created
     }
@@ -424,17 +593,45 @@ export async function createNextTournamentRound(tournamentId, input, organizerId
 
 export async function listGroupMatches(groupId, userId) {
   const context = await repository.getGroupContext(groupId);
-  if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToGroup(groupId, userId)))) {
-    throw errorResponses.notFound('Group not found');
+  if (!context) throw errorResponses.notFound('Group not found');
+  let allowed = context.organizer_id === userId;
+  if (!allowed) {
+    allowed = await repository.isPlayerAssignedToGroup(groupId, userId);
   }
+  if (!allowed) {
+    try {
+      const staffAuth = await assertTournamentAuthorization(context.tournament_id, userId, {
+        permission: PERMISSIONS.VIEW_MATCHES,
+        groupId,
+      });
+      allowed = Boolean(staffAuth.isStaff);
+    } catch {
+      allowed = false;
+    }
+  }
+  if (!allowed) throw errorResponses.notFound('Group not found');
   return (await repository.listMatches(groupId)).map(serializeMatch);
 }
 
 export async function getMatch(matchId, userId) {
   const context = await repository.getMatchContext(matchId);
-  if (!context || (context.organizer_id !== userId && !(await repository.isPlayerAssignedToGroup(context.group_id, userId)))) {
-    throw errorResponses.notFound('Match not found');
+  if (!context) throw errorResponses.notFound('Match not found');
+  let allowed = context.organizer_id === userId;
+  if (!allowed) {
+    allowed = await repository.isPlayerAssignedToGroup(context.group_id, userId);
   }
+  if (!allowed) {
+    try {
+      const staffAuth = await assertTournamentAuthorization(context.tournament_id, userId, {
+        permission: PERMISSIONS.VIEW_MATCHES,
+        groupId: context.group_id,
+      });
+      allowed = Boolean(staffAuth.isStaff);
+    } catch {
+      allowed = false;
+    }
+  }
+  if (!allowed) throw errorResponses.notFound('Match not found');
   const match = await repository.findMatch(matchId);
   return {
     ...serializeMatch(match),
@@ -448,34 +645,59 @@ export async function getMatch(matchId, userId) {
   };
 }
 
-export async function createGroupMatch(groupId, input, organizerId) {
+export async function createGroupMatch(groupId, input, userId) {
   const context = await repository.getGroupContext(groupId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.CREATE_MATCH, isWrite: true, groupId });
   liveTournament(context);
   if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only');
   const match = await repository.createMatch(groupId, input);
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    groupId: Number(groupId),
+    userId,
+    actorId: userId,
+    action: 'MATCH_CREATED',
+    entityType: 'MATCH',
+    entityId: match.id,
+    metadata: { groupId, matchNumber: input.matchNumber, name: input.name },
+  });
   emitRealtime(realtimeRooms.group(groupId), 'match_created', serializeMatch(match));
   return serializeMatch(match);
 }
 
-export async function updateGroupMatch(matchId, input, organizerId) {
+export async function updateGroupMatch(matchId, input, userId) {
   const context = await repository.getMatchContext(matchId);
-  owner(context, organizerId);
+  let requiredPerm = PERMISSIONS.EDIT_MATCH;
+  if (input.status === 'LIVE') requiredPerm = PERMISSIONS.START_MATCH;
+  else if (input.status === 'COMPLETED') requiredPerm = PERMISSIONS.COMPLETE_MATCH;
+  else if (input.room_id !== undefined || input.room_password !== undefined) requiredPerm = PERMISSIONS.EDIT_ROOM;
+
+  await assertAccess(context, userId, { permission: requiredPerm, isWrite: true, groupId: context.group_id });
   liveTournament(context);
   transition(context.status, input.status || context.status, matchTransitions, 'match');
   if (context.status === 'COMPLETED' && input.status !== 'COMPLETED') throw errorResponses.conflict('Completed matches are read-only');
   const match = await repository.updateMatch(matchId, input);
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    groupId: context.group_id,
+    userId,
+    actorId: userId,
+    action: input.status === 'LIVE' ? 'MATCH_STARTED' : input.status === 'COMPLETED' ? 'MATCH_COMPLETED' : 'MATCH_UPDATED',
+    entityType: 'MATCH',
+    entityId: Number(matchId),
+    metadata: input,
+  });
   emitRealtime(realtimeRooms.group(context.group_id), 'match_update', serializeMatch(match));
   return serializeMatch(match);
 }
 
-export async function completeMatch(matchId, organizerId) {
-  return updateGroupMatch(matchId, { status: 'COMPLETED' }, organizerId);
+export async function completeMatch(matchId, userId) {
+  return updateGroupMatch(matchId, { status: 'COMPLETED' }, userId);
 }
 
-export async function deleteGroupMatch(matchId, organizerId) {
+export async function deleteGroupMatch(matchId, userId) {
   const context = await repository.getMatchContext(matchId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.DELETE_MATCH, isWrite: true, groupId: context.group_id });
   if (context.tournament_status === 'COMPLETED') {
     throw errorResponses.conflict('Completed tournaments are read-only');
   }
@@ -486,13 +708,22 @@ export async function deleteGroupMatch(matchId, organizerId) {
     );
   }
   await repository.deleteMatch(matchId);
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    groupId: context.group_id,
+    userId,
+    actorId: userId,
+    action: 'MATCH_DELETED',
+    entityType: 'MATCH',
+    entityId: Number(matchId),
+  });
   emitRealtime(realtimeRooms.group(context.group_id), 'match_deleted', { matchId: Number(matchId) });
   return { success: true, matchId: Number(matchId) };
 }
 
-export async function deleteRoundGroup(groupId, organizerId) {
+export async function deleteRoundGroup(groupId, userId) {
   const context = await repository.getGroupContext(groupId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.DELETE_GROUP, isWrite: true, groupId });
   if (context.tournament_status === 'COMPLETED') {
     throw errorResponses.conflict('Completed tournaments are read-only');
   }
@@ -505,6 +736,15 @@ export async function deleteRoundGroup(groupId, organizerId) {
     throw errorResponses.conflict('Group has qualified teams and cannot be deleted without resetting qualifications.');
   }
   await repository.deleteGroup(groupId);
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    groupId: Number(groupId),
+    userId,
+    actorId: userId,
+    action: 'GROUP_DELETED',
+    entityType: 'GROUP',
+    entityId: Number(groupId),
+  });
   emitRealtime(realtimeRooms.tournament(context.tournament_id), 'group_deleted', {
     groupId: Number(groupId),
     roundId: context.round_id,
@@ -512,9 +752,9 @@ export async function deleteRoundGroup(groupId, organizerId) {
   return { success: true, groupId: Number(groupId) };
 }
 
-export async function deleteTournamentRound(roundId, organizerId) {
+export async function deleteTournamentRound(roundId, userId) {
   const context = await repository.getRoundContext(roundId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.DELETE_GROUP, isWrite: true });
   if (context.tournament_status === 'COMPLETED') {
     throw errorResponses.conflict('Completed tournaments are read-only');
   }
@@ -527,6 +767,14 @@ export async function deleteTournamentRound(roundId, organizerId) {
     throw errorResponses.conflict('Round has finalized qualifications and cannot be deleted.');
   }
   await repository.deleteRound(roundId);
+  await staffRepo.insertAuditLog({
+    tournamentId: context.tournament_id,
+    userId,
+    actorId: userId,
+    action: 'ROUND_DELETED',
+    entityType: 'ROUND',
+    entityId: Number(roundId),
+  });
   emitRealtime(realtimeRooms.tournament(context.tournament_id), 'round_deleted', {
     roundId: Number(roundId),
     tournamentId: context.tournament_id,
@@ -534,9 +782,9 @@ export async function deleteTournamentRound(roundId, organizerId) {
   return { success: true, roundId: Number(roundId) };
 }
 
-export async function notifyMatchSchedule(matchId, organizerId) {
+export async function notifyMatchSchedule(matchId, userId) {
   const context = await repository.getMatchContext(matchId);
-  owner(context, organizerId);
+  await assertAccess(context, userId, { permission: PERMISSIONS.EDIT_MATCH, isWrite: true, groupId: context.group_id });
   const affected = await repository.getMatchAffectedPlayers(matchId);
   const playerUserIds = [...new Set(affected.map((p) => p.user_id))];
 

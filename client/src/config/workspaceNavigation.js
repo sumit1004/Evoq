@@ -11,14 +11,27 @@ export function getPlayerNavigation() {
 export function getOrganizerNavigation({ tournamentId } = {}) {
   return [
     { label: 'Overview', to: '/organizer', active: (path) => path === '/organizer' },
-    { label: 'Tournaments', to: '/organizer/tournaments', active: (path) => path.startsWith('/organizer/tournaments') || path === '/tournaments' || path.startsWith('/tournaments/') },
+    { label: 'Tournaments', to: '/organizer/tournaments', active: (path) => path.startsWith('/organizer/tournaments') || (path.startsWith('/tournaments/') && !path.includes('/scout/')) },
     ...(tournamentId ? [
       { label: 'Tournament Hub', to: `/organizer/tournaments/${tournamentId}`, active: (path) => path === `/organizer/tournaments/${tournamentId}` },
       { label: 'Registrations', to: `/organizer/tournaments/${tournamentId}/registrations`, active: (path) => path.includes('/registrations') },
       { label: 'Announcements', to: `/organizer/tournaments/${tournamentId}/announcements`, active: (path) => path.includes('/announcements') },
       { label: 'Complete tournament', to: `/organizer/tournaments/${tournamentId}/complete`, active: (path) => path.includes('/complete') },
     ] : []),
+    { label: 'Scouts', to: '/organizer/scouts', active: (path) => path.startsWith('/organizer/scouts') },
     { label: 'Notifications', notification: true },
     { label: 'History', to: '/history', active: (path) => path.startsWith('/history') },
   ];
 }
+
+export function getScoutNavigation({ tournamentId } = {}) {
+  return [
+    { label: 'Overview', to: '/scout', active: (path) => path === '/scout' || path === '/scout/tournaments' },
+    ...(tournamentId ? [
+      { label: 'Scout Console', to: `/scout/tournaments/${tournamentId}`, active: (path) => path.startsWith(`/scout/tournaments/${tournamentId}`) },
+    ] : []),
+    { label: 'Notifications', notification: true },
+    { label: 'History', to: '/history', active: (path) => path.startsWith('/history') },
+  ];
+}
+

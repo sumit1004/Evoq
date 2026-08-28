@@ -63,11 +63,20 @@ function groupRows(rows) {
   };
 }
 
-export async function listTournamentRegistrations(tournamentId, organizerId) {
+import { assertTournamentAuthorization, PERMISSIONS } from './authorizationService.js';
+
+export async function listTournamentRegistrations(tournamentId, userId) {
   const tournament = await findTournament(tournamentId);
-  if (!tournament || tournament.organizer_id !== organizerId) {
-    throw errorResponses.notFound('Tournament not found');
+  if (!tournament) throw errorResponses.notFound('Tournament not found');
+  const isOwner = tournament.organizer_id === userId;
+  let canViewPayment = isOwner;
+  if (!isOwner) {
+    const authContext = await assertTournamentAuthorization(tournamentId, userId, {
+      permission: PERMISSIONS.VIEW_REGISTRATIONS,
+    });
+    canViewPayment = authContext.permissions.has(PERMISSIONS.VIEW_PAYMENT_DETAILS);
   }
+
   const grouped = new Map();
   for (const row of await listRegistrations(tournamentId)) {
     if (!grouped.has(row.id)) {
@@ -88,9 +97,9 @@ export async function listTournamentRegistrations(tournamentId, organizerId) {
         organizerId: row.organizer_id,
         tournamentStatus: row.tournament_status,
         paymentStatus: row.payment_status || 'NOT_REQUIRED',
-        paymentAmount: row.payment_amount,
-        transactionId: row.transaction_reference,
-        paymentScreenshotPath: row.proof_url,
+        paymentAmount: canViewPayment ? row.payment_amount : null,
+        transactionId: canViewPayment ? row.transaction_reference : null,
+        paymentScreenshotPath: canViewPayment ? row.proof_url : null,
         paymentProvider: row.payment_provider,
         paymentOrderId: row.provider_order_id,
         paymentId: row.provider_payment_id,
@@ -112,11 +121,18 @@ export async function listTournamentRegistrations(tournamentId, organizerId) {
   return Array.from(grouped.values());
 }
 
-export async function listTournamentRegistrationsPage(tournamentId, organizerId, options = {}) {
+export async function listTournamentRegistrationsPage(tournamentId, userId, options = {}) {
   const tournament = await findTournament(tournamentId);
-  if (!tournament || tournament.organizer_id !== organizerId) {
-    throw errorResponses.notFound('Tournament not found');
+  if (!tournament) throw errorResponses.notFound('Tournament not found');
+  const isOwner = tournament.organizer_id === userId;
+  let canViewPayment = isOwner;
+  if (!isOwner) {
+    const authContext = await assertTournamentAuthorization(tournamentId, userId, {
+      permission: PERMISSIONS.VIEW_REGISTRATIONS,
+    });
+    canViewPayment = authContext.permissions.has(PERMISSIONS.VIEW_PAYMENT_DETAILS);
   }
+
   const page = Math.max(1, Number(options.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(options.limit) || 20));
   const filters = { status: options.status, search: options.search };
@@ -129,7 +145,14 @@ export async function listTournamentRegistrationsPage(tournamentId, organizerId,
     grouped.set(row.id, [...(grouped.get(row.id) || []), row]);
   }
   return {
-    registrations: [...grouped.values()].map(groupRows),
+    registrations: [...grouped.values()].map((r) => {
+      const item = groupRows(r);
+      if (!canViewPayment) {
+        delete item.paymentScreenshotPath;
+        delete item.transactionId;
+      }
+      return item;
+    }),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
 }
@@ -152,8 +175,15 @@ function csvCell(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export async function exportTournamentRegistrations(tournamentId, organizerId) {
-  const registrations = await listTournamentRegistrations(tournamentId, organizerId);
+export async function exportTournamentRegistrations(tournamentId, userId) {
+  const tournament = await findTournament(tournamentId);
+  if (!tournament) throw errorResponses.notFound('Tournament not found');
+  if (tournament.organizer_id !== userId) {
+    await assertTournamentAuthorization(tournamentId, userId, {
+      permission: PERMISSIONS.EXPORT_REGISTRATIONS,
+    });
+  }
+  const registrations = await listTournamentRegistrations(tournamentId, userId);
   const header = ['registration_id', 'status', 'team_name', 'member_name', 'member_email', 'unique_player_id', 'member_mobile', 'in_game_name', 'game_uid', 'game', 'transaction_id', 'submitted_at', 'rejection_reason'];
   const lines = [header.map(csvCell).join(',')];
   for (const registration of registrations) {
@@ -182,13 +212,16 @@ export async function exportTournamentRegistrations(tournamentId, organizerId) {
   return lines.join('\r\n');
 }
 
-export async function buildTournamentRegistrationWorkbook(tournamentId, organizerId) {
-  const ExcelJS = (await import('exceljs')).default;
+export async function buildTournamentRegistrationWorkbook(tournamentId, userId) {
   const tournament = await findTournament(tournamentId);
-  if (!tournament || tournament.organizer_id !== organizerId) {
-    throw errorResponses.notFound('Tournament not found');
+  if (!tournament) throw errorResponses.notFound('Tournament not found');
+  if (tournament.organizer_id !== userId) {
+    await assertTournamentAuthorization(tournamentId, userId, {
+      permission: PERMISSIONS.EXPORT_REGISTRATIONS,
+    });
   }
-  const registrations = await listTournamentRegistrations(tournamentId, organizerId);
+  const ExcelJS = (await import('exceljs')).default;
+  const registrations = await listTournamentRegistrations(tournamentId, userId);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Registrations');
   sheet.columns = [
@@ -249,10 +282,19 @@ export async function getRegistrationForPlayer(registrationId, userId) {
   return registration;
 }
 
-export async function getRegistrationForOrganizer(registrationId, organizerId) {
+export async function getRegistrationForOrganizer(registrationId, userId) {
   const registration = groupRows(await findRegistration(registrationId));
-  if (!registration || registration.organizerId !== organizerId) {
+  if (!registration) {
     throw errorResponses.notFound('Registration not found');
+  }
+  if (registration.organizerId !== userId) {
+    const authContext = await assertTournamentAuthorization(registration.tournamentId, userId, {
+      permission: PERMISSIONS.VIEW_REGISTRATIONS,
+    });
+    if (!authContext.isOwner && !authContext.permissions.has(PERMISSIONS.VIEW_PAYMENT_DETAILS)) {
+      delete registration.paymentScreenshotPath;
+      delete registration.transactionId;
+    }
   }
   return registration;
 }
@@ -368,16 +410,26 @@ export async function createPlayerRegistration(tournamentId, input, userId, uplo
   }
 }
 
-export async function reviewTournamentRegistration(registrationId, input, organizerId) {
+export async function reviewTournamentRegistration(registrationId, input, userId) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const rows = await findRegistration(registrationId, connection);
     const registration = groupRows(rows);
-    if (!registration || registration.organizerId !== organizerId) {
+    if (!registration) {
       throw errorResponses.notFound('Registration not found');
     }
+
+    if (registration.organizerId !== userId) {
+      const requiredPerm = input.status === 'VERIFIED' ? PERMISSIONS.VERIFY_REGISTRATIONS : PERMISSIONS.REJECT_REGISTRATIONS;
+      await assertTournamentAuthorization(registration.tournamentId, userId, {
+        permission: requiredPerm,
+        isWrite: true,
+        connection,
+      });
+    }
+
     if (registration.status !== 'PENDING') {
       throw errorResponses.conflict('Registration already processed');
     }
@@ -412,14 +464,15 @@ export async function reviewTournamentRegistration(registrationId, input, organi
       }
     }
 
-    const affected = await reviewRegistration(registrationId, { ...input, verifierId: organizerId }, connection);
+    const affected = await reviewRegistration(registrationId, { ...input, verifierId: userId }, connection);
     if (!affected) {
       throw errorResponses.conflict('Registration was already reviewed');
     }
 
     // Audit Log
     await paymentRepo.insertAuditLog({
-      actorId: organizerId,
+      actorId: userId,
+      tournamentId: registration.tournamentId,
       action: input.status === 'VERIFIED' ? 'REGISTRATION_VERIFIED' : 'REGISTRATION_REJECTED',
       entityType: 'REGISTRATION',
       entityId: registrationId,
@@ -431,7 +484,7 @@ export async function reviewTournamentRegistration(registrationId, input, organi
     const updated = groupRows(await findRegistration(registrationId));
 
     // Socket events
-    emitRealtime(realtimeRooms.user(organizerId), 'registration_updated', updated);
+    emitRealtime(realtimeRooms.user(userId), 'registration_updated', updated);
     emitRealtime(realtimeRooms.tournament(registration.tournamentId), input.status === 'VERIFIED' ? 'registration_verified' : 'registration_rejected', {
       id: updated.id,
       status: updated.status,
@@ -447,16 +500,21 @@ export async function reviewTournamentRegistration(registrationId, input, organi
   }
 }
 
-export async function precheckBulkVerification(registrationIds, organizerId) {
+export async function precheckBulkVerification(registrationIds, userId) {
   const results = [];
   for (const registrationId of registrationIds) {
     try {
       const rows = await findRegistration(registrationId);
       const registration = groupRows(rows);
-      if (!registration || registration.organizerId !== organizerId) {
+      if (!registration) {
         results.push({ id: registrationId, check: 'Invalid', reason: 'Registration not found' });
         continue;
       }
+      await assertTournamentAuthorization(registration.tournamentId, userId, {
+        permission: PERMISSIONS.VERIFY_REGISTRATIONS,
+        isWrite: true,
+      });
+
       if (registration.status !== 'PENDING') {
         results.push({ id: registrationId, check: 'Invalid', reason: 'Registration already processed' });
         continue;
@@ -475,7 +533,6 @@ export async function precheckBulkVerification(registrationIds, organizerId) {
           continue;
         }
         
-        // Amount mismatch check: check if the actual paid amount is different (if tracked, fallback)
         if (registration.paymentAmount !== undefined && Number(registration.paymentAmount) <= 0) {
           results.push({ id: registrationId, check: 'Needs Review', reason: 'PAYMENT AMOUNT MISMATCH' });
           continue;
@@ -489,8 +546,8 @@ export async function precheckBulkVerification(registrationIds, organizerId) {
   return results;
 }
 
-export async function bulkVerifyRegistrations(registrationIds, organizerId) {
-  const prechecks = await precheckBulkVerification(registrationIds, organizerId);
+export async function bulkVerifyRegistrations(registrationIds, userId) {
+  const prechecks = await precheckBulkVerification(registrationIds, userId);
   const eligible = prechecks.filter(p => p.check === 'Eligible').map(p => p.id);
   const failed = prechecks.filter(p => p.check !== 'Eligible');
 
@@ -499,7 +556,7 @@ export async function bulkVerifyRegistrations(registrationIds, organizerId) {
 
   for (const regId of eligible) {
     try {
-      await reviewTournamentRegistration(regId, { status: 'VERIFIED' }, organizerId);
+      await reviewTournamentRegistration(regId, { status: 'VERIFIED' }, userId);
       successes.push(regId);
     } catch (error) {
       errors.push({ id: regId, reason: error.message });
@@ -516,13 +573,13 @@ export async function bulkVerifyRegistrations(registrationIds, organizerId) {
   };
 }
 
-export async function bulkRejectRegistrations(registrationIds, rejectionReason, organizerId) {
+export async function bulkRejectRegistrations(registrationIds, rejectionReason, userId) {
   const successes = [];
   const errors = [];
 
   for (const regId of registrationIds) {
     try {
-      await reviewTournamentRegistration(regId, { status: 'REJECTED', rejectionReason }, organizerId);
+      await reviewTournamentRegistration(regId, { status: 'REJECTED', rejectionReason }, userId);
       successes.push(regId);
     } catch (error) {
       errors.push({ id: regId, reason: error.message });
@@ -542,18 +599,29 @@ export async function getRegistrationFile(registrationId, userId) {
     throw errorResponses.notFound('Payment evidence not found');
   }
 
-  // Restrict access to authorized organizer or player of team members
-  const isOrganizer = file.organizer_id === userId;
+  const isOrganizer = Number(file.organizer_id) === Number(userId);
+  let isAuthorizedStaff = false;
   let isParticipant = false;
 
   if (!isOrganizer) {
+    try {
+      const auth = await assertTournamentAuthorization(file.tournament_id, userId, {
+        permission: PERMISSIONS.VIEW_PAYMENT_DETAILS,
+      });
+      isAuthorizedStaff = Boolean(auth.isOwner || auth.permissions.has(PERMISSIONS.VIEW_PAYMENT_DETAILS));
+    } catch {
+      isAuthorizedStaff = false;
+    }
+  }
+
+  if (!isOrganizer && !isAuthorizedStaff) {
     const registrationDetails = groupRows(await findRegistration(registrationId));
     if (registrationDetails) {
       isParticipant = registrationDetails.members.some(member => member.id === userId);
     }
   }
 
-  if (!isOrganizer && !isParticipant) {
+  if (!isOrganizer && !isAuthorizedStaff && !isParticipant) {
     throw errorResponses.forbidden();
   }
 

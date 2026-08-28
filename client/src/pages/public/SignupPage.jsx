@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { resolveInitialWorkspaceRoute } from '../../utils/workspaceRouting.js';
 
 const initialForm = { name: '', email: '', password: '', role: 'PLAYER', mobile: '', inGameName: '', gameUid: '' };
 
@@ -21,7 +22,8 @@ export function SignupPage() {
     setState({ loading: true, error: '', fields: {} });
     try {
       const identity = await signup(form);
-      navigate(identity.role === 'ORGANIZER' ? '/organizer' : '/player');
+      const destination = resolveInitialWorkspaceRoute(identity);
+      navigate(destination);
     } catch (error) {
       setState({ loading: false, error: error.message, fields: error.details?.body || {} });
     }

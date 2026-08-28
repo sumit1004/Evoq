@@ -180,9 +180,10 @@ describe('autoAssignRoundGroups & bulkMove & lockRoundAssignment workflow', () =
     expect(result.assignmentStatus).toBe('LOCKED');
     expect(repository.lockRoundAssignment).toHaveBeenCalledWith(1);
   });
+});
 
-  describe('match deletion & group deletion & notifications', () => {
-    beforeEach(() => vi.clearAllMocks());
+describe('match deletion & group deletion & notifications', () => {
+  beforeEach(() => vi.clearAllMocks());
 
     it('rejects match deletion if tournament is completed', async () => {
       repository.getMatchContext.mockResolvedValue({ id: 10, organizer_id: 8, group_id: 2, tournament_status: 'COMPLETED' });
