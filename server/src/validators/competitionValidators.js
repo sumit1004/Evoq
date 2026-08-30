@@ -55,7 +55,7 @@ export function validateAutoAssign(body) {
   const errors = {};
   if (body.groupCount !== undefined && !positiveInteger(body.groupCount)) errors.groupCount = 'groupCount must be a positive integer';
   if (body.targetGroupSize !== undefined && !positiveInteger(body.targetGroupSize)) errors.targetGroupSize = 'targetGroupSize must be a positive integer';
-  if (body.mode !== undefined && !['BY_GROUPS', 'BY_SIZE'].includes(body.mode)) errors.mode = 'mode must be BY_GROUPS or BY_SIZE';
+  if (body.mode !== undefined && !['BY_GROUPS', 'BY_SIZE', 'BY_COUNT'].includes(body.mode)) errors.mode = 'mode must be BY_GROUPS or BY_SIZE';
   return errors;
 }
 

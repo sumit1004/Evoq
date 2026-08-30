@@ -7,6 +7,7 @@ import { emitRealtime, realtimeEvents, realtimeRooms } from '../utils/realtimeHu
 import { assertTournamentAuthorization, PERMISSIONS } from './authorizationService.js';
 
 import * as scoringService from './scoringService.js';
+import * as archiveRepo from '../repositories/archiveRepository.js';
 
 function resultDto(row) { return { id: row.id, matchId: row.match_id, groupId: row.group_id, teamId: row.team_id, teamName: row.team_name, points: Number(row.points), kills: Number(row.kills), placement: row.placement, killPoints: row.kill_points !== null && row.kill_points !== undefined ? Number(row.kill_points) : null, positionPoints: row.position_points !== null && row.position_points !== undefined ? Number(row.position_points) : null, resultText: row.result_text, hasMedia: Boolean(row.media_path), uploadedBy: row.uploaded_by, createdAt: row.created_at, updatedAt: row.updated_at }; }
 function leaderboardDto(row) {
@@ -163,7 +164,33 @@ export async function getMatchLeaderboard(matchId, userId) { await assertMatchAc
 export async function getGroupLeaderboard(groupId, userId) { const context = await repository.getGroupContext(groupId); await assertScopedAccess(context, userId, (playerId) => repository.isPlayerAssignedToGroup(groupId, playerId)); return (await repository.listGroupLeaderboard(groupId)).map((row, idx) => ({ ...leaderboardDto(row), rank: row.rank || idx + 1 })); }
 export async function getRoundLeaderboard(roundId, userId) { const context = await repository.getRoundContext(roundId); await assertScopedAccess(context, userId, (playerId) => repository.isPlayerAssignedToRound(roundId, playerId)); return (await repository.listRoundLeaderboard(roundId)).map((row, idx) => ({ ...leaderboardDto(row), rank: row.rank || idx + 1 })); }
 export async function getTournamentResults(tournamentId, userId) { const context = await repository.getTournamentContext(tournamentId); await assertScopedAccess(context, userId, (playerId) => repository.isPlayerAssignedToTournament(tournamentId, playerId)); return (await repository.listTournamentResults(tournamentId)).map((row) => ({ matchId: row.match_id, matchName: row.match_name, groupId: row.group_id, groupName: row.group_name, roundId: row.round_id, roundName: row.round_name, teamId: row.team_id, teamName: row.team_name, points: Number(row.points), kills: Number(row.kills), placement: row.placement, resultText: row.result_text, createdAt: row.created_at })); }
-export async function getTournamentLeaderboard(tournamentId, userId) { const context = await repository.getTournamentContext(tournamentId); await assertScopedAccess(context, userId, (playerId) => repository.isPlayerAssignedToTournament(tournamentId, playerId)); return (await repository.listTournamentLeaderboard(tournamentId)).map((row, idx) => ({ ...leaderboardDto(row), rank: row.rank || idx + 1 })); }
+export async function getTournamentLeaderboard(tournamentId, userId) {
+  const context = await repository.getTournamentContext(tournamentId);
+  await assertScopedAccess(context, userId, (playerId) => repository.isPlayerAssignedToTournament(tournamentId, playerId));
+
+  // If tournament is COMPLETED, prioritize reading from permanent immutable archive snapshot
+  if (context.status === 'COMPLETED') {
+    const archive = await archiveRepo.findArchiveByTournamentId(tournamentId);
+    if (archive && archive.final_leaderboard_json) {
+      const snap = typeof archive.final_leaderboard_json === 'string'
+        ? JSON.parse(archive.final_leaderboard_json)
+        : archive.final_leaderboard_json;
+      if (Array.isArray(snap) && snap.length > 0) {
+        return snap.map((row, idx) => ({
+          teamId: row.teamId || row.team_id,
+          teamName: row.teamName || row.team_name,
+          points: Number(row.points || 0),
+          kills: Number(row.kills || 0),
+          placement: row.placement != null ? Number(row.placement) : null,
+          matchesPlayed: row.matchesPlayed ?? row.matches_played ?? 0,
+          rank: row.rank || idx + 1,
+        }));
+      }
+    }
+  }
+
+  return (await repository.listTournamentLeaderboard(tournamentId)).map((row, idx) => ({ ...leaderboardDto(row), rank: row.rank || idx + 1 }));
+}
 
 export async function getQualifications(roundId, userId) { const context = await repository.getRoundContext(roundId); await assertScopedAccess(context, userId, (playerId) => repository.isPlayerAssignedToRound(roundId, playerId)); return (await repository.listQualifications(roundId)).map(qualificationDto); }
 export async function selectQualification(roundId, input, userId) {

@@ -220,12 +220,21 @@ export function TournamentHubPage() {
       );
     });
 
+    const removeTourneyCompleted = on('tournament_completed', (data) => {
+      setTournament((prev) => (prev ? { ...prev, status: 'COMPLETED' } : prev));
+      if (data?.finalLeaderboard) {
+        setTournamentLeaderboard(data.finalLeaderboard);
+      }
+      loadTournamentData();
+    });
+
     return () => {
       leaveTournament(tournamentId);
       removeAnnounce();
       removeLeaderboard();
       removeRoomUpdate();
       removeMatchUpdate();
+      removeTourneyCompleted();
     };
   }, [tournamentId, joinTournament, leaveTournament, loadTournamentData, on, activeGroup?.id]);
 
@@ -312,7 +321,7 @@ export function TournamentHubPage() {
           type="button"
           onClick={() => setTab('leaderboard')}
         >
-          Tournament Leaderboard
+          {isCompleted ? 'Final Leaderboard' : 'Tournament Leaderboard'}
         </button>
       </nav>
 

@@ -111,6 +111,8 @@ export function GroupsView({
               type="button"
               style={{ minHeight: '34px', padding: '0 14px', fontSize: '13px' }}
               onClick={() => setShowAssignModal(true)}
+              disabled={actionLoading || (groups.length > 0 && (round?.status === 'IN_PROGRESS' || round?.status === 'COMPLETED'))}
+              title={groups.length > 0 && (round?.status === 'IN_PROGRESS' || round?.status === 'COMPLETED') ? 'Groups cannot be regenerated while round is active or completed. Use manual team actions.' : ''}
             >
               + Create Groups Workflow
             </button>

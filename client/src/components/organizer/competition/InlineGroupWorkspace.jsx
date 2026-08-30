@@ -378,7 +378,7 @@ export function InlineGroupWorkspace({
                           Start Match
                         </button>
                       )}
-                      {!isReadOnly && canManageMatches && (
+                      {!isReadOnly && canManageMatches && m.status !== 'COMPLETED' && (
                         <button
                           className="button ghost-button"
                           type="button"

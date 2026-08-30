@@ -19,6 +19,7 @@ import { useSocket } from '../../context/SocketContext.jsx';
 import { OrganizerRoundsHub } from '../../components/organizer/OrganizerRoundsHub.jsx';
 import { LeaderboardTable } from '../../components/common/LeaderboardTable.jsx';
 import { PointConfigurationSection } from '../../components/organizer/PointConfigurationSection.jsx';
+import { TournamentCompletionModal } from '../../components/organizer/competition/TournamentCompletionModal.jsx';
 
 const ORGANIZER_TABS = ['overview', 'competition', 'rounds', 'registrations', 'leaderboard', 'announcements', 'settings'];
 
@@ -78,6 +79,9 @@ export function OrganizerTournamentPage() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionLoading, setCompletionLoading] = useState(false);
+  const [completionError, setCompletionError] = useState('');
 
   // Forms
   const [newRound, setNewRound] = useState({ roundNumber: 1, name: 'Round 1' });
@@ -148,12 +152,20 @@ export function OrganizerTournamentPage() {
     const removeAnnounce = on('announcement', (item) => {
       setAnnouncements((prev) => [item, ...prev.filter((a) => a.id !== item.id)]);
     });
+    const removeTourneyCompleted = on('tournament_completed', (data) => {
+      setTournament((prev) => (prev ? { ...prev, status: 'COMPLETED' } : prev));
+      if (data?.finalLeaderboard) {
+        setLeaderboard(data.finalLeaderboard);
+      }
+      loadAll();
+    });
 
     return () => {
       leaveTournament(tournamentId);
       removeRegCreated();
       removeRegUpdated();
       removeAnnounce();
+      removeTourneyCompleted();
     };
   }, [tournamentId, joinTournament, leaveTournament, loadAll, on]);
 
@@ -169,15 +181,21 @@ export function OrganizerTournamentPage() {
     }
   };
 
-  const handleCompleteTournament = async () => {
-    if (!window.confirm('Are you sure you want to finalize and archive this tournament? All actions will become read-only.')) return;
-    setState((s) => ({ ...s, submitting: true, error: '', notice: '' }));
+  const handleConfirmCompletion = async () => {
+    setCompletionLoading(true);
+    setCompletionError('');
     try {
-      await completeTournament(tournamentId);
-      setState({ loading: false, submitting: false, notice: 'Tournament completed and archived.', error: '' });
+      const res = await completeTournament(tournamentId);
+      setShowCompletionModal(false);
+      if (res.archive?.finalLeaderboard) {
+        setLeaderboard(res.archive.finalLeaderboard);
+      }
+      setState({ loading: false, submitting: false, notice: 'Tournament completed and archived successfully! Final leaderboard is permanently preserved.', error: '' });
       loadAll();
     } catch (error) {
-      setState({ loading: false, submitting: false, error: error.message, notice: '' });
+      setCompletionError(error.message || 'Failed to complete tournament.');
+    } finally {
+      setCompletionLoading(false);
     }
   };
 
@@ -580,12 +598,47 @@ export function OrganizerTournamentPage() {
             </span>
           </div>
         ) : (
-          <LeaderboardTable
-            rows={leaderboard}
-            title="Overall Tournament Standings"
-            subtitle="Calculated across all completed rounds and match points"
-            emptyMessage="No leaderboard data calculated yet."
-          />
+          <div>
+            {tournament?.status === 'COMPLETED' && leaderboard.length >= 3 && (
+              <div style={{ background: 'linear-gradient(180deg, rgba(246, 196, 83, 0.1) 0%, rgba(20, 24, 33, 0.4) 100%)', border: '1px solid rgba(246, 196, 83, 0.3)', borderRadius: '8px', padding: '24px 20px', marginBottom: '24px', textAlign: 'center' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f6c453', fontWeight: 800, display: 'block', marginBottom: '4px' }}>
+                  OFFICIAL TOURNAMENT CHAMPIONS
+                </span>
+                <h2 style={{ margin: '0 0 20px 0', fontSize: '22px', fontWeight: 900, color: '#fff' }}>
+                  Final Tournament Standings
+                </h2>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', alignItems: 'end', maxWidth: '700px', margin: '0 auto' }}>
+                  {/* 2nd Place */}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '14px 10px', height: '110px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#e0e0e0', textTransform: 'uppercase' }}>2nd Place</span>
+                    <strong style={{ fontSize: '14px', color: '#fff', margin: '4px 0' }}>{leaderboard[1]?.teamName || leaderboard[1]?.team_name}</strong>
+                    <span style={{ fontSize: '12px', color: '#8b949e' }}>{leaderboard[1]?.points ?? 0} pts · {leaderboard[1]?.kills ?? 0} kills</span>
+                  </div>
+
+                  {/* 1st Place */}
+                  <div style={{ background: 'rgba(246, 196, 83, 0.12)', border: '1px solid rgba(246, 196, 83, 0.4)', borderRadius: '6px', padding: '18px 10px', height: '135px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#f6c453', textTransform: 'uppercase' }}>CHAMPION</span>
+                    <strong style={{ fontSize: '16px', color: '#fff', margin: '4px 0' }}>{leaderboard[0]?.teamName || leaderboard[0]?.team_name}</strong>
+                    <span style={{ fontSize: '13px', color: '#f6c453', fontWeight: 700 }}>{leaderboard[0]?.points ?? 0} pts · {leaderboard[0]?.kills ?? 0} kills</span>
+                  </div>
+
+                  {/* 3rd Place */}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '6px', padding: '14px 10px', height: '95px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#cd7f32', textTransform: 'uppercase' }}>3rd Place</span>
+                    <strong style={{ fontSize: '14px', color: '#fff', margin: '4px 0' }}>{leaderboard[2]?.teamName || leaderboard[2]?.team_name}</strong>
+                    <span style={{ fontSize: '12px', color: '#8b949e' }}>{leaderboard[2]?.points ?? 0} pts · {leaderboard[2]?.kills ?? 0} kills</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <LeaderboardTable
+              rows={leaderboard}
+              title={tournament?.status === 'COMPLETED' ? 'Final Tournament Standings' : 'Overall Tournament Standings'}
+              subtitle={tournament?.status === 'COMPLETED' ? 'Permanent authoritative historical results' : 'Calculated across all completed rounds and match points'}
+              emptyMessage="No leaderboard data calculated yet."
+            />
+          </div>
         )
       )}
 
@@ -691,7 +744,7 @@ export function OrganizerTournamentPage() {
                 <button
                   className="button secondary-button"
                   style={{ color: '#ff6b6b', borderColor: 'rgba(231,76,60,0.3)' }}
-                  onClick={handleCompleteTournament}
+                  onClick={() => setShowCompletionModal(true)}
                   disabled={tournament.status === 'COMPLETED'}
                 >
                   {tournament.status === 'COMPLETED' ? 'Tournament is Archived' : 'Complete & Archive Tournament'}
@@ -794,6 +847,22 @@ export function OrganizerTournamentPage() {
           </div>
         </div>
       )}
+
+      {/* Tournament Finalization Modal */}
+      <TournamentCompletionModal
+        isOpen={showCompletionModal}
+        onClose={() => {
+          setShowCompletionModal(false);
+          setCompletionError('');
+        }}
+        onConfirm={handleConfirmCompletion}
+        tournament={tournament}
+        rounds={rounds}
+        groups={Object.values(roundGroups).flat()}
+        leaderboard={leaderboard}
+        loading={completionLoading}
+        error={completionError}
+      />
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useOutletContext } from 'react-router-dom';
 import { useSocket } from '../../context/SocketContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import {
   fetchRegistrations,
   reviewRegistration,
@@ -14,6 +15,8 @@ import {
 
 export function OrganizerRegistrationsPage() {
   const { tournamentId } = useParams();
+  const { identity } = useAuth();
+  const outletCtx = useOutletContext() || {};
   const { joinTournament, leaveTournament, on } = useSocket();
 
   // State
@@ -45,14 +48,26 @@ export function OrganizerRegistrationsPage() {
   const loadMetadata = useCallback(async () => {
     try {
       const tourneyData = await fetchTournament(tournamentId);
-      setTournament(tourneyData.tournament);
+      const tourney = tourneyData.tournament;
+      setTournament(tourney);
       
-      const paySum = await fetchPaymentSummary(tournamentId);
-      setPaymentSummary(paySum.summary);
+      // Payment summary is only accessible to tournament owners / admins
+      const isOwner = identity?.id === tourney?.organizerId || outletCtx?.effectiveAccess?.isOwner;
+      if (tourney?.entryType === 'PAID' && isOwner) {
+        try {
+          const paySum = await fetchPaymentSummary(tournamentId);
+          setPaymentSummary(paySum.summary);
+        } catch (payErr) {
+          // Staff and scouts do not have financial access; gracefully ignore 403
+          if (payErr.response?.status !== 403) {
+            console.warn('Payment summary not available:', payErr.message);
+          }
+        }
+      }
     } catch (e) {
       console.error('Error loading metadata', e);
     }
-  }, [tournamentId]);
+  }, [tournamentId, identity?.id, outletCtx?.effectiveAccess?.isOwner]);
 
   // Load Registrations & Summary counts
   const loadRegistrations = useCallback(async () => {

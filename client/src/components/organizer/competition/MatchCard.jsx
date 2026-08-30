@@ -87,7 +87,7 @@ export function MatchCard({
           </button>
         )}
 
-        {!isReadOnly && canManageMatches && (
+        {!isReadOnly && canManageMatches && match.status !== 'COMPLETED' && (
           <button
             className="button ghost-button"
             type="button"

@@ -13,6 +13,7 @@ export function CompetitionHeader({
   isScout = false,
   permissions = new Set(),
   isReadOnly = false,
+  onOpenCompleteModal,
   error = '',
   notice = '',
   onClearNotice,
@@ -70,6 +71,16 @@ export function CompetitionHeader({
           >
             Registrations
           </Link>
+          {!isReadOnly && !isScout && tournament.status === 'LIVE' && onOpenCompleteModal && (
+            <button
+              type="button"
+              className="button secondary-button"
+              onClick={onOpenCompleteModal}
+              style={{ fontSize: '13px', minHeight: '36px', padding: '0 14px', color: '#f6c453', borderColor: 'rgba(246, 196, 83, 0.4)' }}
+            >
+              Complete Tournament
+            </button>
+          )}
         </div>
       </div>
 

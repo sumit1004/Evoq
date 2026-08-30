@@ -6,9 +6,9 @@ import { countRoundQualifications } from './resultsService.js';
 import { emitRealtime, realtimeEvents, realtimeRooms } from '../utils/realtimeHub.js';
 import { assertTournamentAuthorization, PERMISSIONS } from './authorizationService.js';
 
-const roundTransitions = { NOT_STARTED: ['IN_PROGRESS'], IN_PROGRESS: ['COMPLETED'] };
-const groupTransitions = { NOT_STARTED: ['IN_PROGRESS'], IN_PROGRESS: ['COMPLETED'] };
-const matchTransitions = { SCHEDULED: ['LIVE'], LIVE: ['COMPLETED'] };
+const roundTransitions = { NOT_STARTED: ['IN_PROGRESS', 'COMPLETED'], IN_PROGRESS: ['COMPLETED'] };
+const groupTransitions = { NOT_STARTED: ['IN_PROGRESS', 'COMPLETED'], IN_PROGRESS: ['COMPLETED'] };
+const matchTransitions = { SCHEDULED: ['LIVE', 'COMPLETED'], LIVE: ['COMPLETED'] };
 
 async function assertAccess(context, userId, { permission = null, isWrite = false, groupId = null } = {}) {
   if (!context) throw errorResponses.notFound('Competition resource not found');
@@ -948,15 +948,30 @@ export async function getCompetitionSummary(tournamentId, userId) {
           description: `Round ${rounds[roundIdx + 1].roundNumber} is ready for setup.`,
           roundId: rounds[roundIdx + 1].id,
         };
+      } else if (currentRound.status === 'COMPLETED') {
+        nextAction = {
+          type: 'COMPLETE_TOURNAMENT',
+          label: 'Finalize & Complete Tournament',
+          description: 'All rounds finished. Generate permanent immutable final leaderboard archive.',
+          roundId: currentRound.id,
+        };
       } else {
         nextAction = {
           type: 'CREATE_NEXT_ROUND',
           label: 'Create Next Round',
-          description: 'Advance qualified teams into the next competition round.',
+          description: 'Advance qualified teams into the next competition round, or complete round.',
           roundId: currentRound.id,
         };
       }
     }
+  }
+
+  if (tournament.status === 'COMPLETED') {
+    nextAction = {
+      type: 'TOURNAMENT_COMPLETED',
+      label: 'Tournament Completed',
+      description: 'Official tournament standings and final leaderboard are permanently archived.',
+    };
   }
 
   return {

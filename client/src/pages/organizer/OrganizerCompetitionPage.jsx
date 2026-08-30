@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, useOutletContext } from 'react-router-dom';
 import { fetchTournament, fetchTournamentAccess, fetchScoringConfig } from '../../services/tournamentApi.js';
+import { completeTournament } from '../../services/archiveApi.js';
 import {
   fetchCompetitionSummary,
   fetchRounds,
@@ -26,6 +27,7 @@ import {
   fetchResults,
   fetchGroupLeaderboard,
   fetchRoundLeaderboard,
+  fetchTournamentLeaderboard,
   fetchQualificationCenter,
   finalizeQualifications,
   reopenQualifications,
@@ -42,6 +44,7 @@ import { StandingsView } from '../../components/organizer/competition/StandingsV
 import { QualificationView } from '../../components/organizer/competition/QualificationView.jsx';
 import { NextRoundWizard } from '../../components/organizer/competition/NextRoundWizard.jsx';
 import { CompetitionEmptyState } from '../../components/organizer/competition/CompetitionEmptyState.jsx';
+import { TournamentCompletionModal } from '../../components/organizer/competition/TournamentCompletionModal.jsx';
 
 export function OrganizerCompetitionPage() {
   const { tournamentId } = useParams();
@@ -66,6 +69,7 @@ export function OrganizerCompetitionPage() {
   const [eligibleTeams, setEligibleTeams] = useState([]);
   const [qualCenterData, setQualCenterData] = useState({ groups: [], qualifications: [] });
   const [roundLeaderboard, setRoundLeaderboard] = useState([]);
+  const [tournamentLeaderboard, setTournamentLeaderboard] = useState([]);
   const [groupLeaderboardMap, setGroupLeaderboardMap] = useState({});
 
   // Loading & Feedback
@@ -78,6 +82,9 @@ export function OrganizerCompetitionPage() {
   const [showCreateRoundModal, setShowCreateRoundModal] = useState(false);
   const [createRoundForm, setCreateRoundForm] = useState({ roundNumber: 1, name: 'Round 1' });
   const [showNextRoundModal, setShowNextRoundModal] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionError, setCompletionError] = useState('');
+  const [completionLoading, setCompletionLoading] = useState(false);
   const [deleteConfirmGroup, setDeleteConfirmGroup] = useState(null);
 
   // Determine current navigation from URL params (SPA navigation without reloading)
@@ -88,18 +95,20 @@ export function OrganizerCompetitionPage() {
 
   // Helper to safely update URL query parameters without reloading
   const updateUrlState = useCallback(
-    (updates = {}) => {
-      const next = new URLSearchParams(searchParams);
-      Object.entries(updates).forEach(([key, val]) => {
-        if (val === null || val === undefined || val === '') {
-          next.delete(key);
-        } else {
-          next.set(key, val);
-        }
+    (updates) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        Object.entries(updates).forEach(([key, value]) => {
+          if (value === null || value === undefined) {
+            next.delete(key);
+          } else {
+            next.set(key, String(value));
+          }
+        });
+        return next;
       });
-      setSearchParams(next, { replace: true });
     },
-    [searchParams, setSearchParams]
+    [setSearchParams]
   );
 
   // Fetch access capabilities if not provided by outlet context
@@ -113,17 +122,18 @@ export function OrganizerCompetitionPage() {
     }
   }, [tournamentId, outletCtx.effectiveAccess]);
 
-  // 1. Initial Load: Tournament Context, Scoring Config & Competition Summary
+  // 1. Load Tournament Summary & Rounds & Final Leaderboard
   const loadSummary = useCallback(async () => {
     if (!tournamentId) return;
     try {
       setLoading(true);
       setError('');
 
-      const [tourneyRes, summaryRes, scoreRes] = await Promise.allSettled([
+      const [tourneyRes, summaryRes, scoreRes, leaderRes] = await Promise.allSettled([
         fetchTournament(tournamentId),
         fetchCompetitionSummary(tournamentId),
         fetchScoringConfig(tournamentId),
+        fetchTournamentLeaderboard(tournamentId),
       ]);
 
       if (tourneyRes.status === 'fulfilled' && tourneyRes.value?.tournament) {
@@ -134,6 +144,10 @@ export function OrganizerCompetitionPage() {
 
       if (scoreRes.status === 'fulfilled' && scoreRes.value?.scoringConfig) {
         setScoringConfig(scoreRes.value.scoringConfig);
+      }
+
+      if (leaderRes.status === 'fulfilled' && leaderRes.value?.leaderboard) {
+        setTournamentLeaderboard(leaderRes.value.leaderboard);
       }
 
       let summaryRounds = [];
@@ -300,6 +314,14 @@ export function OrganizerCompetitionPage() {
     const removeGroupDel = on('group_deleted', handleGroupDeleted);
     const removeRoundStatus = on('round_status', handleRoundStatus);
     const removeNextRound = on('next_round_created', handleNextRoundCreated);
+    const removeTourneyCompleted = on('tournament_completed', (data) => {
+      setTournament((prev) => (prev ? { ...prev, status: 'COMPLETED' } : prev));
+      if (data?.finalLeaderboard) {
+        setTournamentLeaderboard(data.finalLeaderboard);
+      }
+      setNotice('Tournament completed and permanently archived.');
+      loadSummary();
+    });
 
     return () => {
       leaveTournament(tournamentId);
@@ -312,6 +334,7 @@ export function OrganizerCompetitionPage() {
       removeGroupDel();
       removeRoundStatus();
       removeNextRound();
+      removeTourneyCompleted();
     };
   }, [tournamentId, selectedRoundId, paramGroupId, joinTournament, leaveTournament, joinGroup, leaveGroup, on, loadSummary, updateUrlState]);
 
@@ -354,6 +377,20 @@ export function OrganizerCompetitionPage() {
   };
 
   const handleCompleteRound = async (roundId) => {
+    // Check prerequisites
+    const hasIncompleteGroups = groups.some((g) => g.status !== 'COMPLETED');
+    if (hasIncompleteGroups) {
+      setError('Every group must be completed before completing the round. Please complete pending groups first.');
+      updateUrlState({ view: 'groups' });
+      return;
+    }
+
+    if (!selectedRound?.qualificationsFinalizedAt) {
+      setError('Qualifications must be finalized before completing the round. Please go to the Qualification tab to select and confirm advancing teams.');
+      updateUrlState({ view: 'qualification' });
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to complete this round? All matches and qualifications must be finalized.')) return;
     setActionLoading(true);
     try {
@@ -364,6 +401,25 @@ export function OrganizerCompetitionPage() {
       setError(err.message || 'Failed to complete round.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleCompleteTournament = async () => {
+    setCompletionLoading(true);
+    setCompletionError('');
+    try {
+      const res = await completeTournament(tournamentId);
+      setShowCompletionModal(false);
+      setTournament((prev) => (prev ? { ...prev, status: 'COMPLETED' } : prev));
+      if (res.archive?.finalLeaderboard) {
+        setTournamentLeaderboard(res.archive.finalLeaderboard);
+      }
+      setNotice('Tournament completed and permanently archived! Final leaderboard is preserved.');
+      loadSummary();
+    } catch (err) {
+      setCompletionError(err.message || 'Failed to complete tournament.');
+    } finally {
+      setCompletionLoading(false);
     }
   };
 
@@ -524,6 +580,7 @@ export function OrganizerCompetitionPage() {
       setNotice('Match deleted.');
     } catch (err) {
       setError(err.message || 'Failed to delete match.');
+      throw err;
     } finally {
       setActionLoading(false);
     }
@@ -540,6 +597,7 @@ export function OrganizerCompetitionPage() {
       loadRoundDetails();
     } catch (err) {
       setError(err.message || 'Failed to finalize qualifications.');
+      throw err;
     } finally {
       setActionLoading(false);
     }
@@ -555,6 +613,7 @@ export function OrganizerCompetitionPage() {
       loadRoundDetails();
     } catch (err) {
       setError(err.message || 'Failed to reopen qualifications.');
+      throw err;
     } finally {
       setActionLoading(false);
     }
@@ -608,6 +667,9 @@ export function OrganizerCompetitionPage() {
         break;
       case 'MANAGE_NEXT_ROUND':
         if (action.roundId) updateUrlState({ round: action.roundId, view: 'groups' });
+        break;
+      case 'COMPLETE_TOURNAMENT':
+        setShowCompletionModal(true);
         break;
       default:
         break;
@@ -671,6 +733,7 @@ export function OrganizerCompetitionPage() {
         isScout={isScout}
         permissions={permissions}
         isReadOnly={isReadOnly}
+        onOpenCompleteModal={() => setShowCompletionModal(true)}
         error={error}
         notice={notice}
         onClearNotice={() => setNotice('')}
@@ -779,6 +842,8 @@ export function OrganizerCompetitionPage() {
               round={selectedRound}
               groups={groups}
               roundLeaderboard={roundLeaderboard}
+              tournamentLeaderboard={tournamentLeaderboard}
+              isCompleted={isReadOnly}
               scoringMode={scoringConfig.scoringMode}
               groupLeaderboardMap={groupLeaderboardMap}
               loading={actionLoading}
@@ -793,6 +858,16 @@ export function OrganizerCompetitionPage() {
                 qualCenterData={qualCenterData}
                 onFinalizeQualifications={handleFinalizeQualifications}
                 onReopenQualifications={handleReopenQualifications}
+                onCompleteGroup={async (gId) => {
+                  try {
+                    const res = await updateGroup(gId, { status: 'COMPLETED' });
+                    setGroups((prev) => prev.map((g) => (g.id === gId ? res.group : g)));
+                    setNotice('Group marked COMPLETED.');
+                    loadRoundDetails();
+                  } catch (err) {
+                    setError(err.message || 'Failed to complete group.');
+                  }
+                }}
                 isReadOnly={isReadOnly}
                 canManageQualifications={canManageQualifications}
                 loading={actionLoading}
@@ -910,6 +985,22 @@ export function OrganizerCompetitionPage() {
           </div>
         </div>
       )}
+
+      {/* Finalize & Complete Tournament Modal */}
+      <TournamentCompletionModal
+        isOpen={showCompletionModal}
+        onClose={() => {
+          setShowCompletionModal(false);
+          setCompletionError('');
+        }}
+        onConfirm={handleCompleteTournament}
+        tournament={tournament}
+        rounds={rounds}
+        groups={groups}
+        leaderboard={tournamentLeaderboard}
+        loading={completionLoading}
+        error={completionError}
+      />
     </section>
   );
 }

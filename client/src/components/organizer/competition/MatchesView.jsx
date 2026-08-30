@@ -20,6 +20,7 @@ export function MatchesView({
   const [matchModalState, setMatchModalState] = useState({ isOpen: false, match: null, groupId: null });
   const [scoreModalState, setScoreModalState] = useState({ isOpen: false, match: null, group: null, results: [] });
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
 
   // Aggregate matches across all groups or selected group
   const allMatchesWithGroup = groups.flatMap((grp) =>
@@ -56,11 +57,12 @@ export function MatchesView({
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirmMatch) return;
+    setDeleteError('');
     try {
       await onDeleteMatch(deleteConfirmMatch.id);
       setDeleteConfirmMatch(null);
     } catch (e) {
-      // Error handled by parent
+      setDeleteError(e.message || 'Failed to delete match.');
     }
   };
 
@@ -180,16 +182,21 @@ export function MatchesView({
           <div className="comp-modal" style={{ maxWidth: '440px' }}>
             <div className="comp-modal-header">
               <h2 className="comp-modal-title">Delete Match?</h2>
-              <button className="comp-modal-close" onClick={() => setDeleteConfirmMatch(null)} type="button">
+              <button className="comp-modal-close" onClick={() => { setDeleteConfirmMatch(null); setDeleteError(''); }} type="button">
                 ✕
               </button>
             </div>
+            {deleteError && (
+              <div className="comp-alert comp-alert-error" style={{ marginBottom: '12px' }}>
+                {deleteError}
+              </div>
+            )}
             <p style={{ fontSize: '13px', color: '#8b949e', margin: '0 0 16px 0', lineHeight: 1.5 }}>
               Are you sure you want to delete <strong style={{ color: '#fff' }}>{deleteConfirmMatch.name}</strong>?
               Matches with finalized scores cannot be deleted.
             </p>
             <div className="comp-modal-footer">
-              <button className="button secondary-button" type="button" onClick={() => setDeleteConfirmMatch(null)}>
+              <button className="button secondary-button" type="button" onClick={() => { setDeleteConfirmMatch(null); setDeleteError(''); }}>
                 Cancel
               </button>
               <button

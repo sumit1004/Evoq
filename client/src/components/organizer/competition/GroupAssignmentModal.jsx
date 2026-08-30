@@ -14,13 +14,11 @@ export function GroupAssignmentModal({
   const [distributionMode, setDistributionMode] = useState('BALANCED'); // BALANCED, RANDOM, SEEDED
   const [avoidRematch, setAvoidRematch] = useState(true);
 
-  if (!isOpen) return null;
-
   const totalEligible = eligibleTeams.length;
 
-  // Compute preview distribution based on current configuration
+  // Compute preview distribution based on current configuration (called unconditionally)
   const previewGroups = useMemo(() => {
-    if (totalEligible === 0) return [];
+    if (!isOpen || totalEligible === 0) return [];
 
     const numGroups = Math.max(1, Math.min(totalEligible, Number(groupCount) || 1));
     const groups = Array.from({ length: numGroups }, (_, i) => ({
@@ -49,7 +47,9 @@ export function GroupAssignmentModal({
     }
 
     return groups;
-  }, [eligibleTeams, totalEligible, groupCount, distributionMode]);
+  }, [isOpen, eligibleTeams, totalEligible, groupCount, distributionMode]);
+
+  if (!isOpen) return null;
 
   const handleGroupCountChange = (val) => {
     const num = Math.max(1, Number(val) || 1);
@@ -68,7 +68,7 @@ export function GroupAssignmentModal({
     onConfirmAssignment({
       groupCount: Number(groupCount),
       targetGroupSize: Number(teamsPerGroup),
-      mode: 'BY_COUNT',
+      mode: 'BY_GROUPS',
       seedingEnabled: distributionMode !== 'RANDOM',
       avoidRematch,
     });

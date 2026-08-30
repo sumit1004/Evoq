@@ -5,6 +5,7 @@ export function QualificationView({
   qualCenterData = { groups: [], qualifications: [] },
   onFinalizeQualifications,
   onReopenQualifications,
+  onCompleteGroup,
   isReadOnly = false,
   canManageQualifications = true,
   loading = false,
@@ -12,6 +13,7 @@ export function QualificationView({
   const isFinalized = Boolean(round?.qualificationsFinalizedAt || qualCenterData.isFinalized);
   const groups = qualCenterData.groups || [];
   const existingQuals = qualCenterData.qualifications || [];
+  const incompleteGroups = groups.filter((g) => g.status !== 'COMPLETED');
 
   // Selected teams map: { [teamId]: { teamId, sourceGroupId, rank } }
   const [selectedTeams, setSelectedTeams] = useState({});
@@ -63,6 +65,10 @@ export function QualificationView({
   };
 
   const handleConfirmFinalize = async () => {
+    if (incompleteGroups.length > 0) {
+      setError(`Every group must be completed before finalizing qualifications (${incompleteGroups.map((g) => g.name).join(', ')} pending).`);
+      return;
+    }
     const selections = Object.values(selectedTeams);
     if (selections.length === 0) {
       setError('Please select at least one qualifying team.');
@@ -147,7 +153,8 @@ export function QualificationView({
                 type="button"
                 style={{ minHeight: '34px', padding: '0 16px', fontSize: '13px' }}
                 onClick={handleConfirmFinalize}
-                disabled={loading || totalSelected === 0}
+                disabled={loading || totalSelected === 0 || incompleteGroups.length > 0}
+                title={incompleteGroups.length > 0 ? 'All groups must be completed before finalizing qualifications' : ''}
               >
                 {loading ? 'Finalizing...' : `Confirm Qualification (${totalSelected} Teams)`}
               </button>
@@ -155,6 +162,33 @@ export function QualificationView({
           )}
         </div>
       </div>
+
+      {incompleteGroups.length > 0 && !isFinalized && (
+        <div className="comp-alert comp-alert-warning" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+          <div>
+            <strong>Group Completion Required: </strong>
+            <span>
+              {incompleteGroups.length} group{incompleteGroups.length > 1 ? 's are' : ' is'} not completed ({incompleteGroups.map((g) => `${g.name}: ${g.status}`).join(', ')}). All groups must be marked COMPLETED before finalizing qualifications.
+            </span>
+          </div>
+          {onCompleteGroup && !isReadOnly && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {incompleteGroups.map((grp) => (
+                <button
+                  key={grp.id}
+                  className="button secondary-button"
+                  type="button"
+                  style={{ minHeight: '28px', padding: '0 10px', fontSize: '11px', color: '#2ecc71', borderColor: 'rgba(46, 204, 113, 0.4)' }}
+                  onClick={() => onCompleteGroup(grp.id)}
+                  disabled={loading}
+                >
+                  Complete {grp.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <div className="comp-alert comp-alert-error">{error}</div>}
 

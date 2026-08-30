@@ -35,9 +35,22 @@ export const DATABASE_ERROR_CODES = new Set([
   'ER_GET_CONNECTION_TIMEOUT',
 ]);
 
+const CONSTRAINT_CODES = new Set([
+  'ER_ROW_IS_REFERENCED_2',
+  'ER_ROW_IS_REFERENCED',
+  'ER_DUP_ENTRY',
+  'ER_NO_REFERENCED_ROW_2',
+  'ER_NO_REFERENCED_ROW',
+  'ER_DATA_TOO_LONG',
+  'ER_TRUNCATED_WRONG_VALUE',
+]);
+
 export function isDatabaseError(error) {
   if (!error) return false;
   if (typeof error.code === 'string') {
+    if (CONSTRAINT_CODES.has(error.code)) {
+      return false;
+    }
     if (DATABASE_ERROR_CODES.has(error.code) || error.code.startsWith('ER_')) {
       return true;
     }
