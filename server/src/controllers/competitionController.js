@@ -29,4 +29,5 @@ export const autoAssign = asyncHandler(async (req, res) => res.json(await servic
 export const bulkMove = asyncHandler(async (req, res) => res.json(await service.bulkMoveRoundTeams(Number(req.params.roundId), req.body, req.user.id)));
 export const lockAssignment = asyncHandler(async (req, res) => res.json({ round: await service.lockRoundAssignment(Number(req.params.roundId), req.user.id) }));
 export const createNextRound = asyncHandler(async (req, res) => res.status(201).json(await service.createNextTournamentRound(Number(req.params.tournamentId), req.body, req.user.id)));
+export const getCompetitionSummary = asyncHandler(async (req, res) => res.json(await service.getCompetitionSummary(Number(req.params.tournamentId), req.user.id)));
 

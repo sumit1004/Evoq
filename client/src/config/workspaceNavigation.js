@@ -24,6 +24,12 @@ export function getOrganizerNavigation({ tournamentId, isScout = false, effectiv
       active: (path) => path === `/organizer/tournaments/${tournamentId}`
     });
 
+    items.push({
+      label: 'Competition',
+      to: `/organizer/tournaments/${tournamentId}/competition`,
+      active: (path) => path.includes('/competition')
+    });
+
     const canViewReg = !isScout || allowed.registrations || permissions.has('VIEW_REGISTRATIONS');
     items.push({
       label: 'Registrations',

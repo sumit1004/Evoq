@@ -50,6 +50,7 @@ import {
   updateRoundStatus,
   updateRoundGroup,
   updateGroupMatch,
+  getCompetitionSummary,
 } from './competitionService.js';
 
 
@@ -248,4 +249,80 @@ describe('match deletion & group deletion & notifications', () => {
       expect(repository.deleteRound).toHaveBeenCalledWith(1);
     });
   });
+
+  describe('getCompetitionSummary', () => {
+    it('returns competition summary with calculated next action', async () => {
+      repository.getTournamentContext.mockResolvedValue({
+        id: 1,
+        organizer_id: 8,
+        status: 'LIVE',
+        name: 'Championship 2026',
+      });
+      repository.listRounds.mockResolvedValue([
+        {
+          id: 10,
+          tournament_id: 1,
+          round_number: 1,
+          name: 'Round 1',
+          status: 'IN_PROGRESS',
+          assignment_status: 'DRAFT',
+          is_locked: 0,
+          qualifications_finalized_at: null,
+        },
+      ]);
+      repository.getRoundStats.mockResolvedValue({
+        totalGroups: 1,
+        completedGroups: 0,
+        totalTeams: 12,
+        totalMatches: 2,
+        completedMatches: 1,
+        liveMatches: 0,
+        qualifiedTeams: 0,
+      });
+      repository.listGroups.mockResolvedValue([
+        {
+          id: 20,
+          round_id: 10,
+          name: 'Group A',
+          status: 'IN_PROGRESS',
+          group_size: 12,
+          teams: [{ id: 1, name: 'Alpha' }],
+          matches: [
+            { id: 101, group_id: 20, match_number: 1, name: 'Match 1', status: 'COMPLETED' },
+            { id: 102, group_id: 20, match_number: 2, name: 'Match 2', status: 'SCHEDULED' },
+          ],
+        },
+      ]);
+
+      const summary = await getCompetitionSummary(1, 8);
+      expect(summary.tournament.id).toBe(1);
+      expect(summary.rounds).toHaveLength(1);
+      expect(summary.currentRoundId).toBe(10);
+      expect(summary.nextAction.type).toBe('REVIEW_MATCH_RESULTS');
+    });
+
+    it('recommends CREATE_GROUPS when round has no groups', async () => {
+      repository.getTournamentContext.mockResolvedValue({
+        id: 1,
+        organizer_id: 8,
+        status: 'LIVE',
+        name: 'Championship 2026',
+      });
+      repository.listRounds.mockResolvedValue([
+        {
+          id: 10,
+          tournament_id: 1,
+          round_number: 1,
+          name: 'Round 1',
+          status: 'NOT_STARTED',
+        },
+      ]);
+      repository.getRoundStats.mockResolvedValue({ totalGroups: 0 });
+      repository.listGroups.mockResolvedValue([]);
+
+      const summary = await getCompetitionSummary(1, 8);
+      expect(summary.nextAction.type).toBe('CREATE_GROUPS');
+    });
+  });
+
 

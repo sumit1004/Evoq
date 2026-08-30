@@ -1,5 +1,6 @@
 import { apiClient, normalizeApiError } from './apiClient.js';
 async function request(action) { try { return (await action()).data; } catch (error) { throw normalizeApiError(error); } }
+export const fetchCompetitionSummary = (id) => (id ? request(() => apiClient.get(`/tournaments/${id}/competition`)) : Promise.resolve(null));
 export const fetchRounds = (id) => (id ? request(() => apiClient.get(`/tournaments/${id}/rounds`)) : Promise.resolve({ rounds: [] }));
 export const getRound = (id) => (id ? request(() => apiClient.get(`/rounds/${id}`)) : Promise.resolve({ round: null }));
 export const createRound = (id, input) => request(() => apiClient.post(`/tournaments/${id}/rounds`, input));

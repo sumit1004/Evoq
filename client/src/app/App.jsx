@@ -15,6 +15,7 @@ import { OrganizerWorkspacePage } from '../pages/organizer/OrganizerWorkspacePag
 import { OrganizerOverviewPage } from '../pages/organizer/OrganizerOverviewPage.jsx';
 import { OrganizerTournamentPage } from '../pages/organizer/OrganizerTournamentPage.jsx';
 import { OrganizerTournamentsPage } from '../pages/organizer/OrganizerTournamentsPage.jsx';
+import { OrganizerCompetitionPage } from '../pages/organizer/OrganizerCompetitionPage.jsx';
 import { OrganizerCompletionPage } from '../pages/organizer/OrganizerCompletionPage.jsx';
 import { HistoryPage, HistoryDetailPage } from '../pages/public/HistoryPage.jsx';
 import { SocketProvider } from '../context/SocketContext.jsx';
@@ -31,38 +32,48 @@ import { MyTournamentsPage } from '../pages/player/MyTournamentsPage.jsx';
 
 function TournamentRoundsRedirect() {
   const { tournamentId } = useParams();
-  return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds`} replace />;
+  return <Navigate to={`/organizer/tournaments/${tournamentId}/competition`} replace />;
 }
 
 function RoundRedirect() {
   const { tournamentId, roundId } = useParams();
-  return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds&round=${roundId}&section=overview`} replace />;
+  return <Navigate to={`/organizer/tournaments/${tournamentId}/competition?round=${roundId}&view=groups`} replace />;
 }
 
 function RoundGroupsRedirect() {
   const { tournamentId, roundId } = useParams();
-  return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds&round=${roundId}&section=groups`} replace />;
+  return <Navigate to={`/organizer/tournaments/${tournamentId}/competition?round=${roundId}&view=groups`} replace />;
 }
 
 function RoundQualificationsRedirect() {
   const { tournamentId, roundId } = useParams();
-  return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds&round=${roundId}&section=qualifications`} replace />;
+  return <Navigate to={`/organizer/tournaments/${tournamentId}/competition?round=${roundId}&view=qualification`} replace />;
 }
 
 function LegacyGroupRedirect() {
-  const { tournamentId, roundId } = useParams();
-  return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds${roundId ? `&round=${roundId}` : ''}&section=groups`} replace />;
+  const { tournamentId, roundId, groupId } = useParams();
+  const query = new URLSearchParams();
+  if (roundId) query.set('round', roundId);
+  query.set('view', 'groups');
+  if (groupId) query.set('group', groupId);
+  return <Navigate to={`/organizer/tournaments/${tournamentId}/competition?${query.toString()}`} replace />;
 }
 
 function LegacyMatchRedirect() {
-  const { tournamentId, roundId } = useParams();
-  return <Navigate to={`/organizer/tournaments/${tournamentId}?tab=rounds${roundId ? `&round=${roundId}` : ''}&section=groups`} replace />;
+  const { tournamentId, roundId, groupId, matchId } = useParams();
+  const query = new URLSearchParams();
+  if (roundId) query.set('round', roundId);
+  query.set('view', 'matches');
+  if (groupId) query.set('group', groupId);
+  if (matchId) query.set('match', matchId);
+  return <Navigate to={`/organizer/tournaments/${tournamentId}/competition?${query.toString()}`} replace />;
 }
 
 function ScoutTournamentRedirect() {
   const { tournamentId } = useParams();
-  return <Navigate to={`/organizer/tournaments/${tournamentId}`} replace />;
+  return <Navigate to={`/organizer/tournaments/${tournamentId}/competition`} replace />;
 }
+
 
 export function AppContent() {
 
@@ -100,6 +111,7 @@ export function AppContent() {
           <Route path="tournaments" element={<OrganizerTournamentsPage />} />
           <Route path="scouts" element={<OrganizerScoutsPage />} />
           <Route path="tournaments/:tournamentId" element={<OrganizerTournamentPage />} />
+          <Route path="tournaments/:tournamentId/competition" element={<OrganizerCompetitionPage />} />
           <Route path="tournaments/:tournamentId/registrations" element={<OrganizerRegistrationsPage />} />
           <Route path="tournaments/:tournamentId/rounds" element={<TournamentRoundsRedirect />} />
           <Route path="tournaments/:tournamentId/rounds/:roundId" element={<RoundRedirect />} />

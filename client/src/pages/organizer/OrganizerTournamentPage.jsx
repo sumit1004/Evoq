@@ -20,7 +20,7 @@ import { OrganizerRoundsHub } from '../../components/organizer/OrganizerRoundsHu
 import { LeaderboardTable } from '../../components/common/LeaderboardTable.jsx';
 import { PointConfigurationSection } from '../../components/organizer/PointConfigurationSection.jsx';
 
-const ORGANIZER_TABS = ['overview', 'rounds', 'registrations', 'leaderboard', 'announcements', 'settings'];
+const ORGANIZER_TABS = ['overview', 'competition', 'rounds', 'registrations', 'leaderboard', 'announcements', 'settings'];
 
 export function OrganizerTournamentPage() {
   const navigate = useNavigate();
@@ -31,6 +31,21 @@ export function OrganizerTournamentPage() {
 
   const [localAccess, setLocalAccess] = useState(outletCtx.effectiveAccess || null);
   const isScout = outletCtx.isScout ?? (localAccess?.role === 'SCOUT');
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    if (currentTab === 'rounds' || currentTab === 'competition') {
+      const round = searchParams.get('round');
+      const section = searchParams.get('section');
+      const group = searchParams.get('group');
+      const view = section === 'qualifications' ? 'qualification' : section === 'matches' ? 'matches' : 'groups';
+      const q = new URLSearchParams();
+      if (round) q.set('round', round);
+      q.set('view', view);
+      if (group) q.set('group', group);
+      navigate(`/organizer/tournaments/${tournamentId}/competition?${q.toString()}`, { replace: true });
+    }
+  }, [tournamentId, searchParams, navigate]);
 
   useEffect(() => {
     if (!outletCtx.effectiveAccess && tournamentId) {
@@ -377,8 +392,8 @@ export function OrganizerTournamentPage() {
         <button role="tab" aria-selected={activeTab === 'overview'} className={activeTab === 'overview' ? 'hub-tab active' : 'hub-tab'} onClick={() => setTab('overview')}>
           Overview
         </button>
-        <button role="tab" aria-selected={activeTab === 'rounds'} className={activeTab === 'rounds' ? 'hub-tab active' : 'hub-tab'} onClick={() => setTab('rounds')}>
-          Rounds & Groups ({rounds.length})
+        <button role="tab" aria-selected={activeTab === 'competition' || activeTab === 'rounds'} className={activeTab === 'competition' || activeTab === 'rounds' ? 'hub-tab active' : 'hub-tab'} onClick={() => navigate(`/organizer/tournaments/${tournamentId}/competition`)}>
+          Competition ({rounds.length})
         </button>
         <button role="tab" aria-selected={activeTab === 'registrations'} className={activeTab === 'registrations' ? 'hub-tab active' : 'hub-tab'} onClick={() => setTab('registrations')}>
           Registrations ({registrations.length}) {isScout && !permissions.has('VIEW_REGISTRATIONS') && '🔒'}
@@ -457,7 +472,7 @@ export function OrganizerTournamentPage() {
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <h3 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>Tournament Progression</h3>
-                <button className="text-button" style={{ color: '#7dd3fc' }} onClick={() => setTab('rounds')}>Manage Rounds</button>
+                <button className="text-button" style={{ color: '#7dd3fc' }} onClick={() => navigate(`/organizer/tournaments/${tournamentId}/competition`)}>Manage Competition</button>
               </div>
               {rounds.length === 0 ? (
                 <p className="empty-state">No rounds created yet. Set up Round 1 to start assigning groups.</p>
@@ -474,13 +489,7 @@ export function OrganizerTournamentPage() {
                       <button
                         className="button secondary-button"
                         style={{ minHeight: '30px', padding: '0 10px', fontSize: '12px' }}
-                        onClick={() => {
-                          const next = new URLSearchParams(searchParams);
-                          next.set('tab', 'rounds');
-                          next.set('round', round.id);
-                          next.set('section', 'overview');
-                          setSearchParams(next);
-                        }}
+                        onClick={() => navigate(`/organizer/tournaments/${tournamentId}/competition?round=${round.id}&view=groups`)}
                       >
                         Manage Round →
                       </button>

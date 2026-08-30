@@ -23,6 +23,7 @@ const organizer = [authenticateRequest, requireRoles('PLAYER', 'ORGANIZER', 'ADM
 const authenticated = [authenticateRequest, requireRoles('PLAYER', 'ORGANIZER', 'ADMIN')];
 export const competitionRouter = Router();
 
+competitionRouter.get('/tournaments/:tournamentId/competition', ...authenticated, validateRequest({ params: validateTournamentRoundId }), controller.getCompetitionSummary);
 competitionRouter.get('/tournaments/:tournamentId/rounds', ...authenticated, validateRequest({ params: validateTournamentRoundId }), controller.listRounds);
 competitionRouter.post('/tournaments/:tournamentId/rounds', ...authenticated, validateRequest({ params: validateTournamentRoundId, body: validateRoundCreate }), controller.createRound);
 competitionRouter.post('/tournaments/:tournamentId/rounds/next', ...authenticated, validateRequest({ params: validateTournamentRoundId, body: validateNextRoundCreate }), controller.createNextRound);

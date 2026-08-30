@@ -829,4 +829,149 @@ export async function notifyMatchSchedule(matchId, userId) {
   };
 }
 
+export async function getCompetitionSummary(tournamentId, userId) {
+  const tournament = await repository.getTournamentContext(tournamentId);
+  const auth = await assertAccess(tournament, userId, { permission: PERMISSIONS.VIEW_ROUNDS });
+
+  const roundList = await repository.listRounds(tournamentId);
+  const rounds = await Promise.all(
+    roundList.map(async (r) => {
+      const stats = await repository.getRoundStats(r.id);
+      const groups = await repository.listGroups(r.id);
+      return {
+        ...serializeRound(r),
+        stats,
+        groups: groups.map(serializeGroup),
+      };
+    })
+  );
+
+  let currentRound = rounds.find((r) => r.status === 'IN_PROGRESS');
+  if (!currentRound && rounds.length > 0) {
+    currentRound = rounds.find((r) => r.status === 'NOT_STARTED') || rounds[rounds.length - 1];
+  }
+
+  let nextAction = {
+    type: 'NO_ACTION',
+    label: 'All Operations Up To Date',
+    description: 'Competition operations are current.',
+  };
+
+  if (tournament.status === 'DRAFT') {
+    nextAction = {
+      type: 'OPEN_REGISTRATION',
+      label: 'Open Tournament Registration',
+      description: 'Registration is not yet open for players.',
+    };
+  } else if (tournament.status === 'REGISTRATION_OPEN') {
+    nextAction = {
+      type: 'REVIEW_REGISTRATIONS',
+      label: 'Review Applications',
+      description: 'Incoming team registrations await verification.',
+    };
+  } else if (tournament.status === 'REGISTRATION_CLOSED') {
+    nextAction = {
+      type: 'START_TOURNAMENT',
+      label: 'Start Tournament (LIVE)',
+      description: 'Registration closed. Start tournament to proceed with competition.',
+    };
+  } else if (tournament.status === 'COMPLETED') {
+    nextAction = {
+      type: 'VIEW_ARCHIVE',
+      label: 'Tournament Completed',
+      description: 'Tournament has been finalized. Operations are read-only.',
+    };
+  } else if (rounds.length === 0) {
+    nextAction = {
+      type: 'CREATE_ROUND_1',
+      label: 'Create Round 1',
+      description: 'Set up Round 1 to begin assigning competition groups.',
+    };
+  } else if (currentRound) {
+    const roundGroups = currentRound.groups || [];
+    const totalGroups = roundGroups.length;
+    const totalAssignedTeams = roundGroups.reduce((acc, g) => acc + (g.teams?.length || 0), 0);
+    const allMatches = roundGroups.flatMap((g) => g.matches || []);
+    const totalMatches = allMatches.length;
+    const completedMatches = allMatches.filter((m) => m.status === 'COMPLETED').length;
+    const liveMatches = allMatches.filter((m) => m.status === 'LIVE').length;
+
+    if (totalGroups === 0) {
+      nextAction = {
+        type: 'CREATE_GROUPS',
+        label: 'Create Groups',
+        description: `Round ${currentRound.roundNumber} has no groups created yet.`,
+        roundId: currentRound.id,
+      };
+    } else if (totalAssignedTeams === 0) {
+      nextAction = {
+        type: 'ASSIGN_TEAMS',
+        label: 'Assign Teams to Groups',
+        description: 'Groups exist but no teams are assigned.',
+        roundId: currentRound.id,
+      };
+    } else if (totalMatches === 0) {
+      nextAction = {
+        type: 'CREATE_MATCHES',
+        label: 'Schedule Matches',
+        description: 'Groups are ready. Create matches for teams to compete.',
+        roundId: currentRound.id,
+      };
+    } else if (liveMatches > 0) {
+      nextAction = {
+        type: 'MONITOR_LIVE',
+        label: 'Live Matches in Progress',
+        description: `${liveMatches} match${liveMatches > 1 ? 'es are' : ' is'} currently live.`,
+        roundId: currentRound.id,
+      };
+    } else if (completedMatches < totalMatches) {
+      nextAction = {
+        type: 'REVIEW_MATCH_RESULTS',
+        label: 'Enter & Review Match Scores',
+        description: `${completedMatches} of ${totalMatches} matches completed. Record remaining scores.`,
+        roundId: currentRound.id,
+      };
+    } else if (!currentRound.qualificationsFinalizedAt) {
+      nextAction = {
+        type: 'SELECT_QUALIFIED_TEAMS',
+        label: 'Finalize Qualifications',
+        description: 'All matches completed. Select and confirm qualifying teams for next round.',
+        roundId: currentRound.id,
+      };
+    } else {
+      const roundIdx = rounds.findIndex((r) => r.id === currentRound.id);
+      const hasNextRound = roundIdx >= 0 && roundIdx < rounds.length - 1;
+      if (hasNextRound) {
+        nextAction = {
+          type: 'MANAGE_NEXT_ROUND',
+          label: 'Proceed to Next Round',
+          description: `Round ${rounds[roundIdx + 1].roundNumber} is ready for setup.`,
+          roundId: rounds[roundIdx + 1].id,
+        };
+      } else {
+        nextAction = {
+          type: 'CREATE_NEXT_ROUND',
+          label: 'Create Next Round',
+          description: 'Advance qualified teams into the next competition round.',
+          roundId: currentRound.id,
+        };
+      }
+    }
+  }
+
+  return {
+    tournament: {
+      id: tournament.id,
+      name: tournament.name,
+      status: tournament.status,
+      organizerId: tournament.organizer_id,
+    },
+    currentRoundId: currentRound?.id || null,
+    rounds,
+    nextAction,
+    permissions: Array.from(auth.permissions || []),
+  };
+}
+
+
 
