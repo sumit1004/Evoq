@@ -48,7 +48,7 @@ export function OrganizerCompetitionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const outletCtx = useOutletContext() || {};
-  const { joinTournament, leaveTournament, joinRound, leaveRound, joinGroup, leaveGroup, on } = useSocket();
+  const { joinTournament, leaveTournament, joinGroup, leaveGroup, on } = useSocket();
 
   // Access & Scout Permissions
   const [access, setAccess] = useState(outletCtx.effectiveAccess || null);
@@ -235,7 +235,6 @@ export function OrganizerCompetitionPage() {
     if (!tournamentId) return;
 
     joinTournament(tournamentId);
-    if (selectedRoundId) joinRound(selectedRoundId);
     if (paramGroupId) joinGroup(paramGroupId);
 
     // Named handlers for clean removal
@@ -304,7 +303,6 @@ export function OrganizerCompetitionPage() {
 
     return () => {
       leaveTournament(tournamentId);
-      if (selectedRoundId) leaveRound(selectedRoundId);
       if (paramGroupId) leaveGroup(paramGroupId);
 
       removeMatchUpdate();
@@ -315,7 +313,7 @@ export function OrganizerCompetitionPage() {
       removeRoundStatus();
       removeNextRound();
     };
-  }, [tournamentId, selectedRoundId, paramGroupId, joinTournament, leaveTournament, joinRound, leaveRound, joinGroup, leaveGroup, on, loadSummary, updateUrlState]);
+  }, [tournamentId, selectedRoundId, paramGroupId, joinTournament, leaveTournament, joinGroup, leaveGroup, on, loadSummary, updateUrlState]);
 
   // Round Management Actions
   const handleSelectRound = (roundId) => {
