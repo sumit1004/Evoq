@@ -11,6 +11,8 @@ import { communicationRouter } from './communicationRoutes.js';
 import { organizerRouter } from './organizerRoutes.js';
 import { paymentRouter } from './paymentRoutes.js';
 import { scoutRouter } from './scoutRoutes.js';
+import { directMessageRouter } from './directMessageRoutes.js';
+import { organizationRouter } from './organizationRoutes.js';
 
 export const apiRouter = Router();
 
@@ -18,6 +20,9 @@ apiRouter.use('/health', healthRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/players', playerRouter);
 apiRouter.use('/player', playerRouter);
+apiRouter.use('/messages', directMessageRouter);
+apiRouter.use('/organizations', organizationRouter);
+apiRouter.use('/organization', organizationRouter);
 apiRouter.use('/teams', teamRouter);
 apiRouter.use('/tournaments', tournamentRouter);
 apiRouter.use('/registrations', registrationRouter);

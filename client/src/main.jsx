@@ -6,6 +6,8 @@ import './styles/global.css';
 import './styles/scouts.css';
 import './styles/competition.css';
 import './styles/playerProfile.css';
+import './styles/messaging.css';
+import './styles/organizations.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -88,4 +88,41 @@ describe('App routing', () => {
     expect(screen.getByRole('heading', { name: 'Assigned Tournaments' })).not.toBeNull();
     window.localStorage.clear();
   });
+
+  it('renders the organizations discovery page with authenticated sidebar for a player', () => {
+    window.localStorage.setItem('evoq.identity', JSON.stringify({ id: 4, name: 'Player One', role: 'PLAYER' }));
+    render(
+      <MemoryRouter initialEntries={['/organizations']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Organizations' })).not.toBeNull();
+    expect(screen.getByText('Organizations')).not.toBeNull();
+    window.localStorage.clear();
+  });
+
+  it('renders the player profile page with authenticated sidebar for a player', () => {
+    window.localStorage.setItem('evoq.identity', JSON.stringify({ id: 4, name: 'Player One', role: 'PLAYER' }));
+    render(
+      <MemoryRouter initialEntries={['/player/profile']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Profile & Performance')).not.toBeNull();
+    window.localStorage.clear();
+  });
+
+  it('renders a public player profile with authenticated sidebar for a player', () => {
+    window.localStorage.setItem('evoq.identity', JSON.stringify({ id: 4, name: 'Player One', role: 'PLAYER' }));
+    render(
+      <MemoryRouter initialEntries={['/player/EVQ-DE934901AED8']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Find Player')).not.toBeNull();
+    window.localStorage.clear();
+  });
 });

@@ -32,6 +32,10 @@ import { MyTournamentsPage } from '../pages/player/MyTournamentsPage.jsx';
 import { PlayerProfilePage } from '../pages/player/PlayerProfilePage.jsx';
 import { FindPlayerPage } from '../pages/player/FindPlayerPage.jsx';
 import { PublicPlayerProfilePage } from '../pages/public/PublicPlayerProfilePage.jsx';
+import { MessagesPage } from '../pages/player/MessagesPage.jsx';
+import { OrganizationsPage } from '../pages/public/OrganizationsPage.jsx';
+import { PublicOrganizationProfilePage } from '../pages/public/PublicOrganizationProfilePage.jsx';
+import { OrganizerOrganizationSettingsPage } from '../pages/organizer/OrganizerOrganizationSettingsPage.jsx';
 
 function TournamentRoundsRedirect() {
   const { tournamentId } = useParams();
@@ -99,22 +103,34 @@ export function AppContent() {
         </Route>
         <Route path="tournaments" element={<TournamentsPage />} />
         <Route path="tournaments/:tournamentId" element={<TournamentDetailsPage />} />
-        <Route path="player/:evoqId" element={<PublicPlayerProfilePage />} />
-        <Route path="players/:evoqId" element={<PublicPlayerProfilePage />} />
+        <Route path="organizations" element={<AuthenticatedLayout />}>
+          <Route index element={<OrganizationsPage />} />
+        </Route>
+        <Route path="organization" element={<AuthenticatedLayout />}>
+          <Route path=":idOrSlug" element={<PublicOrganizationProfilePage />} />
+        </Route>
         <Route path="/player" element={<PlayerWorkspacePage />}>
           <Route index element={<PlayerOverviewPage />} />
           <Route path="dashboard" element={<PlayerDashboardPage />} />
           <Route path="profile" element={<PlayerProfilePage />} />
           <Route path="search" element={<FindPlayerPage />} />
           <Route path="teams" element={<TeamsPage />} />
+          <Route path="organizations" element={<OrganizationsPage />} />
+          <Route path="messages" element={<MessagesPage />} />
+          <Route path="messages/:conversationId" element={<MessagesPage />} />
           <Route path="my-tournaments" element={<MyTournamentsPage />} />
           <Route path="groups/:groupId" element={<PlayerGroupPage />} />
           <Route path="communications/:tournamentId" element={<TournamentHubPage />} />
           <Route path="tournaments/:tournamentId" element={<TournamentHubPage />} />
           <Route path="groups/:groupId/chat" element={<GroupChatPage />} />
+          <Route path=":evoqId" element={<PublicPlayerProfilePage />} />
+        </Route>
+        <Route path="players/:evoqId" element={<AuthenticatedLayout />}>
+          <Route index element={<PublicPlayerProfilePage />} />
         </Route>
         <Route path="/organizer" element={<OrganizerWorkspacePage />}>
           <Route index element={<OrganizerOverviewPage />} />
+          <Route path="organization" element={<OrganizerOrganizationSettingsPage />} />
           <Route path="tournaments" element={<OrganizerTournamentsPage />} />
           <Route path="scouts" element={<OrganizerScoutsPage />} />
           <Route path="tournaments/:tournamentId" element={<OrganizerTournamentPage />} />

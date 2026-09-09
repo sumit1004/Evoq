@@ -4,7 +4,9 @@ export function getPlayerNavigation() {
     { label: 'Profile & Performance', to: '/player/profile', active: (path) => path.startsWith('/player/profile') },
     { label: 'Teams', to: '/player/teams', active: (path) => path.startsWith('/player/teams') },
     { label: 'Tournaments', to: '/tournaments', active: (path) => path === '/tournaments' || path.startsWith('/tournaments/') || path === '/player/my-tournaments' || path.startsWith('/player/communications') || path.startsWith('/player/groups') },
-    { label: 'Find Player', to: '/player/search', active: (path) => path.startsWith('/player/search') },
+    { label: 'Organizations', to: '/organizations', active: (path) => path.startsWith('/organizations') || path.startsWith('/organization/') },
+    { label: 'Messages', to: '/player/messages', active: (path) => path.startsWith('/player/messages') },
+    { label: 'Find Player', to: '/player/search', active: (path) => path.startsWith('/player/search') || (path.startsWith('/player/') && !path.startsWith('/player/dashboard') && !path.startsWith('/player/profile') && !path.startsWith('/player/teams') && !path.startsWith('/player/messages') && !path.startsWith('/player/my-tournaments') && !path.startsWith('/player/groups') && !path.startsWith('/player/communications') && !path.startsWith('/player/tournaments') && !path.startsWith('/player/organizations')) },
     { label: 'Notifications', notification: true },
     { label: 'History', to: '/history', active: (path) => path.startsWith('/history') },
   ];
@@ -18,6 +20,14 @@ export function getOrganizerNavigation({ tournamentId, isScout = false, effectiv
     { label: 'Overview', to: '/organizer', active: (path) => path === '/organizer' },
     { label: 'Tournaments', to: '/organizer/tournaments', active: (path) => path.startsWith('/organizer/tournaments') || (path.startsWith('/tournaments/') && !path.includes('/scout/')) },
   ];
+
+  if (!isScout) {
+    items.push({
+      label: 'Organization Profile',
+      to: '/organizer/organization',
+      active: (path) => path.startsWith('/organizer/organization'),
+    });
+  }
 
   if (tournamentId) {
     items.push({
@@ -62,6 +72,11 @@ export function getOrganizerNavigation({ tournamentId, isScout = false, effectiv
       label: 'Scouts',
       to: '/organizer/scouts',
       active: (path) => path.startsWith('/organizer/scouts')
+    });
+    items.push({
+      label: 'Messages',
+      to: '/player/messages',
+      active: (path) => path.startsWith('/player/messages'),
     });
   }
 

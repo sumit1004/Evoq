@@ -1,21 +1,32 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, Navigate } from 'react-router-dom';
 import { fetchPublicPlayerProfile } from '../../services/playerProfileApi.js';
+import { openDirectConversation } from '../../services/directMessageApi.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { normalizeApiError } from '../../services/apiClient.js';
 
 export function PublicPlayerProfilePage() {
   const { evoqId } = useParams();
+  const navigate = useNavigate();
+  const { identity } = useAuth();
+
+  if (evoqId === 'profile') {
+    return <Navigate to="/player/profile" replace />;
+  }
+
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(false);
+  const [messaging, setMessaging] = useState(false);
 
   const load = useCallback(async () => {
-    if (!evoqId) return;
+    if (!evoqId || evoqId === 'profile') return;
     try {
       setLoading(true);
       setError('');
-      const data = await fetchPublicPlayerProfile(evoqId);
+      const cleanedId = decodeURIComponent(evoqId).trim().replace(/\s+/g, '-');
+      const data = await fetchPublicPlayerProfile(cleanedId);
       setProfile(data);
     } catch (err) {
       const norm = normalizeApiError(err);
@@ -34,6 +45,26 @@ export function PublicPlayerProfilePage() {
       navigator.clipboard.writeText(profile.identity.uniquePlayerId);
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
+
+  const handleMessagePlayer = async () => {
+    if (!identity) {
+      navigate(`/login?redirect=/player/${evoqId}`);
+      return;
+    }
+
+    if (!profile?.identity?.userId) return;
+
+    try {
+      setMessaging(true);
+      const result = await openDirectConversation({ recipientUserId: profile.identity.userId });
+      navigate(`/player/messages/${result.conversation.id}`);
+    } catch (err) {
+      const norm = normalizeApiError(err);
+      alert(norm.message || 'Unable to open conversation');
+    } finally {
+      setMessaging(false);
     }
   };
 
@@ -59,7 +90,8 @@ export function PublicPlayerProfilePage() {
     );
   }
 
-  const { identity, primaryGame, gameProfiles, currentTeam, tournamentHistory, performance, achievements } = profile;
+  const { identity: playerIdentity, primaryGame, gameProfiles, currentTeam, tournamentHistory, performance, achievements } = profile;
+  const isOwnProfile = identity && Number(identity.id) === Number(playerIdentity?.userId);
 
   return (
     <div className="profile-hub-page" style={{ padding: '2rem 1rem' }}>
@@ -69,21 +101,21 @@ export function PublicPlayerProfilePage() {
         <div className="profile-header-main">
           <div className="profile-identity-group">
             <div className="profile-avatar-wrapper">
-              {identity?.avatarUrl ? (
-                <img src={identity.avatarUrl} alt={identity.name} className="profile-avatar-img" />
+              {playerIdentity?.avatarUrl ? (
+                <img src={playerIdentity.avatarUrl} alt={playerIdentity.name} className="profile-avatar-img" />
               ) : (
-                identity?.name?.slice(0, 1).toUpperCase() || 'P'
+                playerIdentity?.name?.slice(0, 1).toUpperCase() || 'P'
               )}
             </div>
 
             <div className="profile-identity-info">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1>{identity?.name}</h1>
+                <h1>{playerIdentity?.name}</h1>
                 <span className="badge-tag exp" style={{ fontSize: '0.72rem' }}>Verified Player</span>
               </div>
 
               <div className="profile-evoq-id-badge">
-                <span>{identity?.uniquePlayerId}</span>
+                <span>{playerIdentity?.uniquePlayerId}</span>
                 <button
                   type="button"
                   className="copy-id-btn"
@@ -107,7 +139,18 @@ export function PublicPlayerProfilePage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {!isOwnProfile && (
+              <button
+                className="button primary-button"
+                type="button"
+                onClick={handleMessagePlayer}
+                disabled={messaging}
+                style={{ minHeight: '34px', fontSize: '0.85rem' }}
+              >
+                {messaging ? 'Opening Chat...' : 'Message'}
+              </button>
+            )}
             <Link to="/player/search" className="button secondary-button" style={{ minHeight: '34px', fontSize: '0.85rem' }}>
               ← Search Players
             </Link>
