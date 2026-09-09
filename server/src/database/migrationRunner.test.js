@@ -15,7 +15,7 @@ describe('migration runner foundation', () => {
   it('requires a matching down migration for every up migration', async () => {
     const migrations = await getMigrations();
 
-    expect(migrations).toHaveLength(10);
+    expect(migrations).toHaveLength(11);
     expect(migrations[0].version).toBe('001_initial_schema');
     expect(migrations[0].downPath).toContain('001_initial_schema.down.sql');
     expect(migrations[1].version).toBe('002_match_result_media');
@@ -36,5 +36,7 @@ describe('migration runner foundation', () => {
     expect(migrations[8].downPath).toContain('009_tournament_scoring_configuration.down.sql');
     expect(migrations[9].version).toBe('010_scout_and_organization_staff_management');
     expect(migrations[9].downPath).toContain('010_scout_and_organization_staff_management.down.sql');
+    expect(migrations[10].version).toBe('011_player_profile_and_performance');
+    expect(migrations[10].downPath).toContain('011_player_profile_and_performance.down.sql');
   });
 });

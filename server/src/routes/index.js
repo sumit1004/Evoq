@@ -17,6 +17,7 @@ export const apiRouter = Router();
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/players', playerRouter);
+apiRouter.use('/player', playerRouter);
 apiRouter.use('/teams', teamRouter);
 apiRouter.use('/tournaments', tournamentRouter);
 apiRouter.use('/registrations', registrationRouter);

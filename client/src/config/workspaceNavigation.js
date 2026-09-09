@@ -1,8 +1,10 @@
 export function getPlayerNavigation() {
   return [
     { label: 'Overview', to: '/player/dashboard', active: (path) => path === '/player' || path === '/player/dashboard' },
+    { label: 'Profile & Performance', to: '/player/profile', active: (path) => path.startsWith('/player/profile') },
     { label: 'Teams', to: '/player/teams', active: (path) => path.startsWith('/player/teams') },
     { label: 'Tournaments', to: '/tournaments', active: (path) => path === '/tournaments' || path.startsWith('/tournaments/') || path === '/player/my-tournaments' || path.startsWith('/player/communications') || path.startsWith('/player/groups') },
+    { label: 'Find Player', to: '/player/search', active: (path) => path.startsWith('/player/search') },
     { label: 'Notifications', notification: true },
     { label: 'History', to: '/history', active: (path) => path.startsWith('/history') },
   ];

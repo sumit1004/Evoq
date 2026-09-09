@@ -29,6 +29,9 @@ import { ScoutTournamentPage } from '../pages/scout/ScoutTournamentPage.jsx';
 import { PlayerGroupPage } from '../pages/player/PlayerGroupPage.jsx';
 import { TournamentHubPage } from '../pages/player/TournamentHubPage.jsx';
 import { MyTournamentsPage } from '../pages/player/MyTournamentsPage.jsx';
+import { PlayerProfilePage } from '../pages/player/PlayerProfilePage.jsx';
+import { FindPlayerPage } from '../pages/player/FindPlayerPage.jsx';
+import { PublicPlayerProfilePage } from '../pages/public/PublicPlayerProfilePage.jsx';
 
 function TournamentRoundsRedirect() {
   const { tournamentId } = useParams();
@@ -96,9 +99,13 @@ export function AppContent() {
         </Route>
         <Route path="tournaments" element={<TournamentsPage />} />
         <Route path="tournaments/:tournamentId" element={<TournamentDetailsPage />} />
+        <Route path="player/:evoqId" element={<PublicPlayerProfilePage />} />
+        <Route path="players/:evoqId" element={<PublicPlayerProfilePage />} />
         <Route path="/player" element={<PlayerWorkspacePage />}>
           <Route index element={<PlayerOverviewPage />} />
           <Route path="dashboard" element={<PlayerDashboardPage />} />
+          <Route path="profile" element={<PlayerProfilePage />} />
+          <Route path="search" element={<FindPlayerPage />} />
           <Route path="teams" element={<TeamsPage />} />
           <Route path="my-tournaments" element={<MyTournamentsPage />} />
           <Route path="groups/:groupId" element={<PlayerGroupPage />} />
