@@ -18,7 +18,7 @@ export async function resolvePlayerIds(playerIds) {
 
 export async function listTeamsForUser(userId) {
   const [rows] = await pool.query(
-    `SELECT t.id, t.name, t.owner_id, owner.name AS owner_name,
+    `SELECT t.id, t.name, t.logo_url, t.owner_id, owner.name AS owner_name,
             tm.role AS member_role, member.id AS member_id, member.name AS member_name,
             member.email AS member_email, pp.unique_player_id,
             pp.mobile, pp.in_game_name, pp.game_uid
@@ -37,7 +37,7 @@ export async function listTeamsForUser(userId) {
 
 export async function findTeamForUser(teamId, userId) {
   const [rows] = await pool.query(
-    `SELECT t.id, t.name, t.owner_id, owner.name AS owner_name,
+    `SELECT t.id, t.name, t.logo_url, t.owner_id, owner.name AS owner_name,
             member.id AS member_id, member.name AS member_name,
             member.email AS member_email, tm.role AS member_role,
             pp.unique_player_id, pp.mobile, pp.in_game_name, pp.game_uid
@@ -55,17 +55,17 @@ export async function findTeamForUser(teamId, userId) {
 }
 
 export async function getTeamOwner(teamId) {
-  const [rows] = await pool.query('SELECT id, owner_id, name FROM teams WHERE id = ? LIMIT 1', [teamId]);
+  const [rows] = await pool.query('SELECT id, owner_id, name, logo_url FROM teams WHERE id = ? LIMIT 1', [teamId]);
   return rows[0] || null;
 }
 
-export async function createTeam({ name, ownerId, memberIds }) {
+export async function createTeam({ name, ownerId, memberIds, logoUrl = null }) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const [teamResult] = await connection.query(
-      'INSERT INTO teams (name, owner_id) VALUES (?, ?)',
-      [name, ownerId],
+      'INSERT INTO teams (name, owner_id, logo_url) VALUES (?, ?, ?)',
+      [name, ownerId, logoUrl],
     );
     const teamId = teamResult.insertId;
     const members = [[teamId, ownerId, 'OWNER'], ...memberIds.filter((id) => id !== ownerId).map((id) => [teamId, id, 'MEMBER'])];
@@ -83,6 +83,11 @@ export async function createTeam({ name, ownerId, memberIds }) {
   }
 }
 
+export async function updateTeamLogo(teamId, logoUrl) {
+  const [result] = await pool.query('UPDATE teams SET logo_url = ? WHERE id = ?', [logoUrl, teamId]);
+  return result.affectedRows > 0;
+}
+
 export async function deleteTeam(teamId) {
   const connection = await pool.getConnection();
   try {
@@ -97,3 +102,4 @@ export async function deleteTeam(teamId) {
     connection.release();
   }
 }
+

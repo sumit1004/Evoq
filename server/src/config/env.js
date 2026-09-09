@@ -37,8 +37,11 @@ export const config = {
   host: process.env.HOST || '0.0.0.0',
   port: getNumber('PORT', 4000),
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  appUrl: process.env.APP_URL || process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'development-only-secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  emailFrom: process.env.EMAIL_FROM || 'EVOQ Gaming <onboarding@resend.dev>',
   uploadDirectory: path.resolve(process.env.UPLOAD_DIRECTORY || 'uploads'),
   db: {
     host: process.env.DB_HOST || 'localhost',

@@ -4,6 +4,8 @@ import { AuthenticatedLayout } from '../layouts/AuthenticatedLayout.jsx';
 import { LandingPage } from '../pages/public/LandingPage.jsx';
 import { LoginPage } from '../pages/public/LoginPage.jsx';
 import { SignupPage } from '../pages/public/SignupPage.jsx';
+import { ForgotPasswordPage } from '../pages/public/ForgotPasswordPage.jsx';
+import { ResetPasswordPage } from '../pages/public/ResetPasswordPage.jsx';
 import { NotFoundPage } from '../pages/public/NotFoundPage.jsx';
 import { AuthProvider, useAuth } from '../context/AuthContext.jsx';
 import { PlayerOverviewPage, PlayerWorkspacePage } from '../pages/player/PlayerWorkspacePage.jsx';
@@ -100,6 +102,9 @@ export function AppContent() {
           <Route index element={<LandingPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="signup" element={<SignupPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password/:token" element={<ResetPasswordPage />} />
+          <Route path="reset-password" element={<ForgotPasswordPage />} />
         </Route>
         <Route path="tournaments" element={<TournamentsPage />} />
         <Route path="tournaments/:tournamentId" element={<TournamentDetailsPage />} />

@@ -94,7 +94,11 @@ export function AuthProvider({ children }) {
         const status = error.response?.status;
         if (status === 401) {
           const url = error.config?.url || '';
-          const isAuthAttempt = url.includes('/auth/login') || url.includes('/auth/signup');
+          const isAuthAttempt =
+            url.includes('/auth/login') ||
+            url.includes('/auth/signup') ||
+            url.includes('/auth/forgot-password') ||
+            url.includes('/auth/reset-password');
           if (!isAuthAttempt) {
             logout();
           }

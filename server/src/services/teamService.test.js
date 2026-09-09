@@ -28,7 +28,7 @@ describe('team service', () => {
     const result = await createMyTeam({ name: ' Alpha ', memberPlayerIds: ['evq-member'] }, 4);
 
     expect(repository.resolvePlayerIds).toHaveBeenCalledWith(['EVQ-MEMBER']);
-    expect(repository.createTeam).toHaveBeenCalledWith({ name: 'Alpha', ownerId: 4, memberIds: [9] });
+    expect(repository.createTeam).toHaveBeenCalledWith({ name: 'Alpha', ownerId: 4, memberIds: [9], logoUrl: null });
     expect(result.members).toHaveLength(2);
   });
 

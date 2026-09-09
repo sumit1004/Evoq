@@ -18,7 +18,7 @@ function isDuplicateError(error) {
 }
 
 function createAccessToken(user) {
-  return jwt.sign({ role: user.role }, config.jwtSecret, {
+  return jwt.sign({ role: user.role, tokenVersion: user.token_version || 1 }, config.jwtSecret, {
     subject: String(user.id),
     expiresIn: config.jwtExpiresIn,
   });

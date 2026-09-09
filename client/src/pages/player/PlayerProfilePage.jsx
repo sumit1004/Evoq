@@ -7,6 +7,7 @@ import {
   updateGameProfile,
   deleteGameProfile,
   fetchPracticeSessions,
+  fetchPracticeSession,
   createPracticeSession,
   deletePracticeSession,
   createPracticeMatch,
@@ -721,13 +722,12 @@ export function PlayerProfilePage() {
       {/* --- TAB 4: PRACTICE / SCRIMS --- */}
       {activeTab === 'practice' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Practice Performance & Trend Snapshot */}
           <div className="profile-panel-card">
             <div className="profile-panel-head">
               <div>
-                <h2>Practice & Scrim Sessions ({sessionsData.total || 0})</h2>
-                <p style={{ color: '#8b949e', fontSize: '0.85rem', margin: '4px 0 0' }}>
-                  Track your custom lobby scrims, tournament warmups, and practice stats.
-                </p>
+                <h2>Practice & Scrim Analytics</h2>
+                <span className="badge-tag role" style={{ fontSize: '0.75rem' }}>Player Reported</span>
               </div>
               <button
                 type="button"
@@ -736,6 +736,94 @@ export function PlayerProfilePage() {
               >
                 + New Practice Session
               </button>
+            </div>
+
+            <div className="profile-summary-grid">
+              <div className="stat-tile">
+                <span>Practice Matches</span>
+                <strong>{performance?.practice?.matchesPlayed || 0}</strong>
+                <small>Logged in Hub</small>
+              </div>
+              <div className="stat-tile">
+                <span>Avg Damage</span>
+                <strong>{performance?.practice?.avgDamage || 0}</strong>
+                <small>Per match</small>
+              </div>
+              <div className="stat-tile">
+                <span>Avg Kills</span>
+                <strong>{performance?.practice?.avgKills || 0}</strong>
+                <small>Per match</small>
+              </div>
+              <div className="stat-tile">
+                <span>Best Placement</span>
+                <strong>{performance?.practice?.bestPlacement ? `#${performance.practice.bestPlacement}` : 'N/A'}</strong>
+                <small>{performance?.practice?.wins || 0} Wins ({performance?.practice?.top3Finishes || 0} Podiums)</small>
+              </div>
+            </div>
+
+            {/* Deterministic Trend Comparison Widget */}
+            <div className="trend-card-widget">
+              <div className="trend-card-header">
+                <div>
+                  <strong style={{ color: '#f6f8fb', fontSize: '0.95rem' }}>Recent Performance Form & Trend</strong>
+                  <div style={{ color: '#8b949e', fontSize: '0.78rem' }}>Recent 7 Days vs Prior Period</div>
+                </div>
+                <div>
+                  {performance?.recentForm?.recentTrend?.sampleSufficient ? (
+                    <span className={`trend-direction-badge ${performance.recentForm.recentTrend.trendDirection.toLowerCase()}`}>
+                      {performance.recentForm.recentTrend.trendDirection === 'Improving' ? '▲ Improving' :
+                       performance.recentForm.recentTrend.trendDirection === 'Declining' ? '▼ Declining' : '● Stable'}
+                    </span>
+                  ) : (
+                    <span className="trend-direction-badge insufficient">
+                      Insufficient Data
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {performance?.recentForm?.recentTrend?.sampleSufficient ? (
+                <div className="trend-metrics-row">
+                  <div className="trend-metric-item">
+                    <span>Kills Trend</span>
+                    <strong style={{ color: performance.recentForm.recentTrend.killsDelta >= 0 ? '#2ecc71' : '#e74c3c' }}>
+                      {performance.recentForm.recentTrend.killsDelta >= 0 ? `+${performance.recentForm.recentTrend.killsDelta}` : performance.recentForm.recentTrend.killsDelta} avg kills
+                    </strong>
+                  </div>
+                  <div className="trend-metric-item">
+                    <span>Damage Trend</span>
+                    <strong style={{ color: performance.recentForm.recentTrend.damageDelta >= 0 ? '#2ecc71' : '#e74c3c' }}>
+                      {performance.recentForm.recentTrend.damageDelta >= 0 ? `+${performance.recentForm.recentTrend.damageDelta}` : performance.recentForm.recentTrend.damageDelta} avg dmg
+                    </strong>
+                  </div>
+                  <div className="trend-metric-item">
+                    <span>Placement Trend</span>
+                    <strong style={{ color: performance.recentForm.recentTrend.placementDelta <= 0 ? '#2ecc71' : '#e74c3c' }}>
+                      {performance.recentForm.recentTrend.placementDelta <= 0 ? `${performance.recentForm.recentTrend.placementDelta} (Better)` : `+${performance.recentForm.recentTrend.placementDelta}`}
+                    </strong>
+                  </div>
+                  <div className="trend-metric-item">
+                    <span>Recent 7d Volume</span>
+                    <strong>{performance.recentForm.recentTrend.recentPeriod?.count || 0} matches</strong>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: '#8b949e', fontSize: '0.85rem', margin: 0 }}>
+                  {performance?.recentForm?.recentTrend?.message || 'At least 3 matches in both recent and prior period required for trend analysis.'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Practice Sessions List */}
+          <div className="profile-panel-card">
+            <div className="profile-panel-head">
+              <div>
+                <h2>Practice Sessions & Scrims ({sessionsData.total || 0})</h2>
+                <p style={{ color: '#8b949e', fontSize: '0.85rem', margin: '4px 0 0' }}>
+                  Track your custom lobby scrims, tournament warmups, and match logs.
+                </p>
+              </div>
             </div>
 
             {(!sessionsData.sessions || sessionsData.sessions.length === 0) ? (
@@ -748,57 +836,35 @@ export function PlayerProfilePage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {sessionsData.sessions.map((sess) => (
-                  <div key={sess.id} className="practice-session-item">
-                    <div className="session-header">
-                      <div className="session-title-group">
-                        <span className="badge-tag game" style={{ fontSize: '0.75rem', marginBottom: '4px' }}>
-                          {sess.game_name}
-                        </span>
-                        <h4>{sess.title}</h4>
-                        <div style={{ fontSize: '0.8rem', color: '#8b949e', marginTop: '2px' }}>
-                          Date: {new Date(sess.session_date).toLocaleDateString()} {sess.team_name ? `· Team: ${sess.team_name}` : ''}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ textAlign: 'right', fontSize: '0.85rem' }}>
-                          <div><strong>{sess.match_count}</strong> matches</div>
-                          <div style={{ color: '#8b949e' }}>{sess.total_kills} kills · {sess.total_damage} dmg</div>
-                        </div>
-                        <button
-                          type="button"
-                          className="button secondary-button"
-                          style={{ minHeight: '30px', fontSize: '0.8rem', padding: '0 8px' }}
-                          onClick={() => {
-                            setSelectedSessionId(sess.id);
-                            setEditingMatch(null);
-                            setShowMatchModal(true);
-                          }}
-                        >
-                          + Add Match
-                        </button>
-                        <button
-                          type="button"
-                          className="text-button"
-                          style={{ color: '#e74c3c', fontSize: '0.8rem' }}
-                          onClick={async () => {
-                            if (window.confirm('Delete this practice session and its matches?')) {
-                              await deletePracticeSession(sess.id);
-                              loadTabContent();
-                              loadProfile();
-                            }
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    {sess.notes && (
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#8b949e', fontStyle: 'italic' }}>
-                        Note: {sess.notes}
-                      </p>
-                    )}
-                  </div>
+                  <PracticeSessionCard
+                    key={sess.id}
+                    sess={sess}
+                    onAddMatch={(sessionId) => {
+                      setSelectedSessionId(sessionId);
+                      setEditingMatch(null);
+                      setShowMatchModal(true);
+                    }}
+                    onEditMatch={(sessionId, match) => {
+                      setSelectedSessionId(sessionId);
+                      setEditingMatch(match);
+                      setShowMatchModal(true);
+                    }}
+                    onDeleteSession={async (sessionId) => {
+                      if (window.confirm('Delete this practice session and its matches?')) {
+                        await deletePracticeSession(sessionId);
+                        loadTabContent();
+                        loadProfile();
+                      }
+                    }}
+                    onDeleteMatch={async (matchId, onReload) => {
+                      if (window.confirm('Delete this match record?')) {
+                        await deletePracticeMatch(matchId);
+                        if (onReload) onReload();
+                        loadTabContent();
+                        loadProfile();
+                      }
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -948,6 +1014,10 @@ export function PlayerProfilePage() {
           onClose={() => setShowMatchModal(false)}
           onSuccess={() => {
             setShowMatchModal(false);
+            loadTabContent();
+            loadProfile();
+          }}
+          onMatchAddedSilently={() => {
             loadTabContent();
             loadProfile();
           }}
@@ -1452,7 +1522,189 @@ function PracticeSessionModal({ onClose, onSuccess }) {
   );
 }
 
-function PracticeMatchModal({ sessionId, editingMatch, onClose, onSuccess }) {
+function PracticeSessionCard({
+  sess,
+  onAddMatch,
+  onEditMatch,
+  onDeleteSession,
+  onDeleteMatch,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [sessionDetail, setSessionDetail] = useState(null);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+
+  const toggleExpand = async () => {
+    if (!expanded && !sessionDetail) {
+      try {
+        setLoadingMatches(true);
+        const data = await fetchPracticeSession(sess.id);
+        setSessionDetail(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingMatches(false);
+      }
+    }
+    setExpanded(!expanded);
+  };
+
+  const reloadMatches = async () => {
+    try {
+      const data = await fetchPracticeSession(sess.id);
+      setSessionDetail(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="practice-session-item">
+      <div className="session-header">
+        <div className="session-title-group">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span className="badge-tag game" style={{ fontSize: '0.75rem' }}>
+              {sess.game_name}
+            </span>
+            <span className="badge-tag role" style={{ fontSize: '0.7rem' }}>
+              Player Reported
+            </span>
+          </div>
+          <h4>{sess.title}</h4>
+          <div style={{ fontSize: '0.8rem', color: '#8b949e', marginTop: '2px' }}>
+            Date: {new Date(sess.session_date).toLocaleDateString()}{' '}
+            {sess.team_name ? `· Team: ${sess.team_name}` : ''}
+            {sess.best_placement != null && ` · Best Rank: #${sess.best_placement}`}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ textAlign: 'right', fontSize: '0.85rem' }}>
+            <div><strong>{sess.match_count}</strong> matches</div>
+            <div style={{ color: '#8b949e' }}>{sess.total_kills} kills · {sess.total_damage} dmg</div>
+          </div>
+          <button
+            type="button"
+            className="button secondary-button"
+            style={{ minHeight: '30px', fontSize: '0.8rem', padding: '0 8px' }}
+            onClick={() => onAddMatch(sess.id)}
+          >
+            + Add Match
+          </button>
+          <button
+            type="button"
+            className="button secondary-button"
+            style={{ minHeight: '30px', fontSize: '0.8rem', padding: '0 8px' }}
+            onClick={toggleExpand}
+          >
+            {expanded ? '▲ Hide' : `▼ Matches (${sess.match_count})`}
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            style={{ color: '#e74c3c', fontSize: '0.8rem' }}
+            onClick={() => onDeleteSession(sess.id)}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {sess.notes && (
+        <p style={{ margin: 0, fontSize: '0.85rem', color: '#8b949e', fontStyle: 'italic' }}>
+          Note: {sess.notes}
+        </p>
+      )}
+
+      {expanded && (
+        <div className="session-matches-expanded">
+          {loadingMatches ? (
+            <div style={{ color: '#8b949e', fontSize: '0.85rem', padding: '0.5rem 0' }}>Loading matches...</div>
+          ) : !sessionDetail?.matches || sessionDetail.matches.length === 0 ? (
+            <div style={{ color: '#8b949e', fontSize: '0.85rem', padding: '0.5rem 0' }}>
+              No matches logged in this session yet.{' '}
+              <button
+                type="button"
+                className="text-link"
+                style={{ background: 'none', border: 'none', color: '#388bfd', cursor: 'pointer' }}
+                onClick={() => onAddMatch(sess.id)}
+              >
+                + Add Match #1
+              </button>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="session-matches-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Placement</th>
+                    <th>Kills</th>
+                    <th>Damage</th>
+                    <th>Assists</th>
+                    <th>Weapons</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessionDetail.matches.map((m) => (
+                    <tr key={m.id}>
+                      <td><strong>Match {m.match_number}</strong></td>
+                      <td>
+                        {m.placement != null ? (
+                          <strong style={{ color: m.placement === 1 ? '#f39c12' : m.placement <= 3 ? '#2ecc71' : '#f6f8fb' }}>
+                            #{m.placement}
+                          </strong>
+                        ) : '-'}
+                      </td>
+                      <td><strong>{m.kills}</strong></td>
+                      <td>{m.damage ? `${m.damage} dmg` : '-'}</td>
+                      <td>{m.assists || '-'}</td>
+                      <td>
+                        {m.weapons_json && Array.isArray(m.weapons_json) && m.weapons_json.length > 0 ? (
+                          m.weapons_json.map((w, wi) => (
+                            <span key={wi} className="weapon-chip">
+                              {w.weaponName} ({w.kills}k)
+                            </span>
+                          ))
+                        ) : '-'}
+                      </td>
+                      <td style={{ color: '#8b949e', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.notes || '-'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            type="button"
+                            className="button secondary-button"
+                            style={{ minHeight: '24px', fontSize: '0.72rem', padding: '0 6px' }}
+                            onClick={() => onEditMatch(sess.id, m)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="text-button"
+                            style={{ color: '#e74c3c', fontSize: '0.72rem' }}
+                            onClick={() => onDeleteMatch(m.id, reloadMatches)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PracticeMatchModal({ sessionId, editingMatch, onClose, onSuccess, onMatchAddedSilently }) {
   const [form, setForm] = useState({
     matchNumber: editingMatch?.match_number || 1,
     placement: editingMatch?.placement ?? '',
@@ -1465,27 +1717,61 @@ function PracticeMatchModal({ sessionId, editingMatch, onClose, onSuccess }) {
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [quickSuccess, setQuickSuccess] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const buildPayload = () => {
+    const weapons = form.primaryWeapon
+      ? [{ weaponName: form.primaryWeapon, kills: Number(form.primaryWeaponKills || 0) }]
+      : [];
+
+    return {
+      sessionId,
+      matchNumber: Number(form.matchNumber),
+      placement: form.placement !== '' ? Number(form.placement) : null,
+      kills: Number(form.kills || 0),
+      assists: Number(form.assists || 0),
+      damage: Number(form.damage || 0),
+      notes: form.notes || null,
+      weapons,
+    };
+  };
+
+  const handleSaveAndAddNext = async () => {
     try {
       setSaving(true);
       setErr('');
+      setQuickSuccess('');
+      const payload = buildPayload();
+      await createPracticeMatch(sessionId, payload);
+      const nextNum = Number(form.matchNumber) + 1;
+      setQuickSuccess(`Saved Match #${form.matchNumber}! Ready for Match #${nextNum}.`);
+      setForm({
+        matchNumber: nextNum,
+        placement: '',
+        kills: 0,
+        assists: 0,
+        damage: 0,
+        notes: '',
+        primaryWeapon: '',
+        primaryWeaponKills: 0,
+      });
+      if (onMatchAddedSilently) {
+        onMatchAddedSilently();
+      }
+    } catch (error) {
+      const n = normalizeApiError(error);
+      setErr(n.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
-      const weapons = form.primaryWeapon
-        ? [{ weaponName: form.primaryWeapon, kills: Number(form.primaryWeaponKills || 0) }]
-        : [];
-
-      const payload = {
-        sessionId,
-        matchNumber: Number(form.matchNumber),
-        placement: form.placement !== '' ? Number(form.placement) : null,
-        kills: Number(form.kills || 0),
-        assists: Number(form.assists || 0),
-        damage: Number(form.damage || 0),
-        notes: form.notes || null,
-        weapons,
-      };
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      setSaving(true);
+      setErr('');
+      const payload = buildPayload();
 
       if (editingMatch) {
         await updatePracticeMatch(editingMatch.id, payload);
@@ -1505,10 +1791,15 @@ function PracticeMatchModal({ sessionId, editingMatch, onClose, onSuccess }) {
     <div className="modal-overlay">
       <div className="modal-dialog">
         <div className="modal-head">
-          <h3>{editingMatch ? 'Edit Practice Match' : 'Add Match to Session'}</h3>
+          <h3>{editingMatch ? `Edit Practice Match #${editingMatch.match_number}` : 'Add Match to Session'}</h3>
           <button type="button" className="modal-close-btn" onClick={onClose}>×</button>
         </div>
         {err && <div className="dashboard-error"><span>{err}</span></div>}
+        {quickSuccess && (
+          <div className="quick-save-feedback">
+            <span>✓</span> {quickSuccess}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-row-2">
@@ -1589,10 +1880,21 @@ function PracticeMatchModal({ sessionId, editingMatch, onClose, onSuccess }) {
             />
           </div>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ flexWrap: 'wrap' }}>
             <button type="button" className="button secondary-button" onClick={onClose}>Cancel</button>
+            {!editingMatch && (
+              <button
+                type="button"
+                className="button secondary-button"
+                disabled={saving}
+                onClick={handleSaveAndAddNext}
+                style={{ borderColor: 'rgba(56, 139, 253, 0.4)', color: '#58a6ff' }}
+              >
+                {saving ? 'Saving...' : 'Save & Add Next Match'}
+              </button>
+            )}
             <button type="submit" className="button primary-button" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Match Result'}
+              {saving ? 'Saving...' : editingMatch ? 'Update Match' : 'Save & Finish'}
             </button>
           </div>
         </form>

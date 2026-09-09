@@ -38,4 +38,8 @@ export const errorResponses = {
     status: 401,
     code: 'INVALID_CREDENTIALS',
   }),
+  badRequest: (message = 'Bad request') => new AppError(message, {
+    status: 400,
+    code: 'BAD_REQUEST',
+  }),
 };

@@ -96,3 +96,69 @@ export function uploadPaymentQr(req, res, next) {
   });
 }
 
+// Reusable temporary upload storage for MediaService targets
+const tempMediaDirectory = path.resolve(config.uploadDirectory, 'temp');
+if (!fs.existsSync(tempMediaDirectory)) {
+  fs.mkdirSync(tempMediaDirectory, { recursive: true });
+}
+
+const tempStorage = multer.diskStorage({
+  destination: (_req, _file, callback) => callback(null, tempMediaDirectory),
+  filename: (_req, _file, callback) => callback(null, `temp-${Date.now()}-${randomUUID()}`),
+});
+
+const teamLogoMulter = multer({
+  storage: tempStorage,
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) {
+      return callback(new Error('Only PNG, JPEG, and WEBP team logos are allowed'));
+    }
+    return callback(null, true);
+  },
+});
+
+export function uploadTeamLogo(req, res, next) {
+  return teamLogoMulter.single('logo')(req, res, (error) => {
+    if (!error) return validateStoredImage(req, next);
+    return next(new AppError(error.message, { status: 400, code: 'UPLOAD_VALIDATION_ERROR' }));
+  });
+}
+
+const orgLogoMulter = multer({
+  storage: tempStorage,
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) {
+      return callback(new Error('Only PNG, JPEG, and WEBP organization logos are allowed'));
+    }
+    return callback(null, true);
+  },
+});
+
+export function uploadOrgLogo(req, res, next) {
+  return orgLogoMulter.single('logo')(req, res, (error) => {
+    if (!error) return validateStoredImage(req, next);
+    return next(new AppError(error.message, { status: 400, code: 'UPLOAD_VALIDATION_ERROR' }));
+  });
+}
+
+const orgBannerMulter = multer({
+  storage: tempStorage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) {
+      return callback(new Error('Only PNG, JPEG, and WEBP cover banners are allowed'));
+    }
+    return callback(null, true);
+  },
+});
+
+export function uploadOrgBanner(req, res, next) {
+  return orgBannerMulter.single('banner')(req, res, (error) => {
+    if (!error) return validateStoredImage(req, next);
+    return next(new AppError(error.message, { status: 400, code: 'UPLOAD_VALIDATION_ERROR' }));
+  });
+}
+
+

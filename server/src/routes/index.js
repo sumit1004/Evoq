@@ -13,10 +13,12 @@ import { paymentRouter } from './paymentRoutes.js';
 import { scoutRouter } from './scoutRoutes.js';
 import { directMessageRouter } from './directMessageRoutes.js';
 import { organizationRouter } from './organizationRoutes.js';
+import { mediaRouter } from './mediaRoutes.js';
 
 export const apiRouter = Router();
 
 apiRouter.use('/health', healthRouter);
+apiRouter.use('/media', mediaRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/players', playerRouter);
 apiRouter.use('/player', playerRouter);

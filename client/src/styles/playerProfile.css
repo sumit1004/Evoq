@@ -441,7 +441,7 @@
   border-radius: 3px;
 }
 
-/* --- Scrim & Practice Tables --- */
+/* --- Scrim & Practice Tables & Accordion --- */
 .practice-session-item {
   background: rgba(22, 27, 34, 0.85);
   border: 1px solid rgba(240, 246, 252, 0.08);
@@ -450,6 +450,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  transition: border-color 0.15s ease;
+}
+
+.practice-session-item:hover {
+  border-color: rgba(240, 246, 252, 0.16);
 }
 
 .session-header {
@@ -457,7 +462,7 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .session-title-group h4 {
@@ -465,6 +470,12 @@
   font-size: 1rem;
   font-weight: 700;
   color: #f6f8fb;
+}
+
+.session-matches-expanded {
+  margin-top: 0.5rem;
+  border-top: 1px solid rgba(240, 246, 252, 0.08);
+  padding-top: 0.75rem;
 }
 
 .session-matches-table {
@@ -475,7 +486,7 @@
 
 .session-matches-table th,
 .session-matches-table td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.75rem;
   text-align: left;
   border-bottom: 1px solid rgba(240, 246, 252, 0.06);
 }
@@ -489,6 +500,103 @@
 
 .session-matches-table td {
   color: #f6f8fb;
+}
+
+.quick-save-feedback {
+  background: rgba(46, 204, 113, 0.15);
+  border: 1px solid rgba(46, 204, 113, 0.4);
+  color: #2ecc71;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.trend-card-widget {
+  background: rgba(13, 17, 23, 0.6);
+  border: 1px solid rgba(240, 246, 252, 0.08);
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trend-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.trend-direction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.trend-direction-badge.improving {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.35);
+}
+
+.trend-direction-badge.declining {
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.35);
+}
+
+.trend-direction-badge.stable {
+  background: rgba(52, 152, 219, 0.15);
+  color: #3498db;
+  border: 1px solid rgba(52, 152, 219, 0.35);
+}
+
+.trend-direction-badge.insufficient {
+  background: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+  border: 1px solid rgba(243, 156, 18, 0.35);
+}
+
+.trend-metrics-row {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.trend-metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trend-metric-item span {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.trend-metric-item strong {
+  font-size: 0.95rem;
+  color: #f6f8fb;
+}
+
+.weapon-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(240, 246, 252, 0.08);
+  font-size: 0.72rem;
+  color: #c9d1d9;
 }
 
 /* --- Achievements Grid --- */

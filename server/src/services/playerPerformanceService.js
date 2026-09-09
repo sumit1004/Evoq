@@ -254,30 +254,75 @@ export function calculatePerformanceStats(officialMatches = [], practiceMatches 
     };
   }
 
-  // Recent 7 days vs previous period trend (if enough data)
+  // Period comparison: Recent 7 days vs Prior 7-14 days
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 86400000;
   const fourteenDaysAgo = now - 14 * 86400000;
 
-  const recent7dMatches = [...practiceMatches, ...officialMatches].filter((m) => {
-    const t = new Date(m.playedAt || m.played_at || m.created_at).getTime();
-    return t >= sevenDaysAgo;
-  });
+  const getMatchTime = (m) => new Date(m.playedAt || m.played_at || m.created_at || m.session_date || 0).getTime();
 
-  const prev7dMatches = [...practiceMatches, ...officialMatches].filter((m) => {
-    const t = new Date(m.playedAt || m.played_at || m.created_at).getTime();
+  const allPractice = practiceMatches.map((m) => ({ ...m, source: 'practice' }));
+  const allOfficial = officialMatches.map((m) => ({ ...m, source: 'official' }));
+  const combinedMatches = [...allPractice, ...allOfficial];
+
+  const recent7dMatches = combinedMatches.filter((m) => getMatchTime(m) >= sevenDaysAgo);
+  const prev7dMatches = combinedMatches.filter((m) => {
+    const t = getMatchTime(m);
     return t >= fourteenDaysAgo && t < sevenDaysAgo;
   });
 
-  const recent7dKills = recent7dMatches.reduce((s, m) => s + Number(m.kills || 0), 0);
-  const prev7dKills = prev7dMatches.reduce((s, m) => s + Number(m.kills || 0), 0);
-  const recent7dAvg = recent7dMatches.length > 0 ? Number((recent7dKills / recent7dMatches.length).toFixed(2)) : 0;
-  const prev7dAvg = prev7dMatches.length > 0 ? Number((prev7dKills / prev7dMatches.length).toFixed(2)) : 0;
+  const calcPeriodStats = (matches) => {
+    const count = matches.length;
+    if (count === 0) return { count: 0, avgKills: 0, avgDamage: 0, avgPlacement: null };
+    const kills = matches.reduce((s, m) => s + Number(m.kills || 0), 0);
+    const damage = matches.reduce((s, m) => s + Number(m.damage || 0), 0);
+    const placements = matches.filter((m) => m.placement != null).map((m) => Number(m.placement));
+    const avgPlacement = placements.length > 0 ? Number((placements.reduce((s, p) => s + p, 0) / placements.length).toFixed(1)) : null;
+    return {
+      count,
+      avgKills: Number((kills / count).toFixed(2)),
+      avgDamage: Number((damage / count).toFixed(1)),
+      avgPlacement,
+    };
+  };
 
-  let trend = 'Stable';
-  if (recent7dMatches.length >= 2 && prev7dMatches.length >= 2) {
-    if (recent7dAvg > prev7dAvg * 1.1) trend = 'Improving';
-    else if (recent7dAvg < prev7dAvg * 0.9) trend = 'Declining';
+  const recentPeriod = calcPeriodStats(recent7dMatches);
+  const prevPeriod = calcPeriodStats(prev7dMatches);
+
+  let recentTrend = {
+    sampleSufficient: false,
+    message: 'Not enough data for a reliable trend.',
+    trendDirection: 'Insufficient Data',
+    killsDelta: 0,
+    damageDelta: 0,
+    placementDelta: 0,
+    recentPeriod,
+    prevPeriod,
+  };
+
+  if (recentPeriod.count >= 3 && prevPeriod.count >= 3) {
+    const killsDelta = Number((recentPeriod.avgKills - prevPeriod.avgKills).toFixed(2));
+    const damageDelta = Number((recentPeriod.avgDamage - prevPeriod.avgDamage).toFixed(1));
+    const placementDelta = recentPeriod.avgPlacement !== null && prevPeriod.avgPlacement !== null
+      ? Number((recentPeriod.avgPlacement - prevPeriod.avgPlacement).toFixed(1))
+      : 0;
+
+    let trendDirection = 'Stable';
+    if (recentPeriod.avgKills > prevPeriod.avgKills * 1.1 || (recentPeriod.avgPlacement !== null && prevPeriod.avgPlacement !== null && recentPeriod.avgPlacement < prevPeriod.avgPlacement * 0.9)) {
+      trendDirection = 'Improving';
+    } else if (recentPeriod.avgKills < prevPeriod.avgKills * 0.9 || (recentPeriod.avgPlacement !== null && prevPeriod.avgPlacement !== null && recentPeriod.avgPlacement > prevPeriod.avgPlacement * 1.1)) {
+      trendDirection = 'Declining';
+    }
+
+    recentTrend = {
+      sampleSufficient: true,
+      trendDirection,
+      killsDelta,
+      damageDelta,
+      placementDelta,
+      recentPeriod,
+      prevPeriod,
+    };
   }
 
   return {
@@ -315,8 +360,9 @@ export function calculatePerformanceStats(officialMatches = [], practiceMatches 
     rating,
     recentForm: {
       matches7d: recent7dMatches.length,
-      avgKills7d: recent7dAvg,
-      trend,
+      avgKills7d: recentPeriod.avgKills,
+      trend: recentTrend.trendDirection === 'Insufficient Data' ? (recent7dMatches.length >= 2 ? 'Stable' : 'Insufficient Data') : recentTrend.trendDirection,
+      recentTrend,
     },
   };
 }
@@ -599,21 +645,27 @@ export async function getPublicEsportsProfile(evoqId) {
     listPracticeMatches(userId, { limit: 50 }),
   ]);
 
-  const publicGameProfiles = gameProfiles.filter((g) => g.is_public);
+  const officialMatches = officialMatchesResult?.matches || [];
+  const practiceMatches = practiceMatchesResult?.matches || [];
+  const safeGameProfiles = gameProfiles || [];
+  const safeTournaments = tournaments || [];
+
+  const publicGameProfiles = safeGameProfiles.filter((g) => g.is_public);
   const primaryGame = publicGameProfiles.find((g) => g.is_primary) || publicGameProfiles[0] || null;
 
   const performance = profile.show_performance
-    ? calculatePerformanceStats(officialMatchesResult.matches, profile.show_practice ? practiceMatchesResult.matches : [], tournaments)
+    ? calculatePerformanceStats(officialMatches, profile.show_practice ? practiceMatches : [], safeTournaments)
     : null;
 
   const achievements = profile.show_achievements
-    ? calculateAchievements(tournaments, officialMatchesResult.matches, practiceMatchesResult.matches, publicGameProfiles)
+    ? calculateAchievements(safeTournaments, officialMatches, practiceMatches, publicGameProfiles)
     : [];
 
   return {
     identity: {
+      userId: profile.user_id,
       name: profile.name,
-      uniquePlayerId: profile.unique_player_id,
+      uniquePlayerId: profile.unique_player_id || `EVOQ-P-${profile.user_id}`,
       inGameName: profile.in_game_name,
       gameUid: profile.show_game_uid ? profile.game_uid : null,
       country: profile.country,
@@ -647,7 +699,7 @@ export async function getPublicEsportsProfile(evoqId) {
       isPrimary: Boolean(g.is_primary),
       experience: calculateExperience(g.started_playing_at),
     })),
-    currentTeam: profile.show_team && teams[0]
+    currentTeam: profile.show_team && teams && teams[0]
       ? {
           name: teams[0].name,
           memberCount: teams[0].member_count,

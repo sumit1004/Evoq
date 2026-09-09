@@ -8,6 +8,7 @@ import {
   updateOrganizationProfile,
 } from '../repositories/organizationRepository.js';
 import { pool } from '../config/database.js';
+import { deleteMediaObject, replaceMediaObject } from './mediaService.js';
 
 /**
  * Lists public organizations for discovery with live tournament counts.
@@ -95,3 +96,60 @@ export async function updateMyOrganizationProfile(organizerUserId, updates) {
   await updateOrganizationProfile(org.id, updates);
   return getMyOrganizationProfile(organizerUserId);
 }
+
+export async function uploadOrgLogoService(organizerUserId, file) {
+  const org = await getOrganizationByOwnerId(organizerUserId);
+  if (!org) throw errorResponses.notFound('Organization not found');
+
+  const media = await replaceMediaObject({
+    oldKeyOrUrl: org.logoUrl,
+    newFile: file,
+    category: 'organizations',
+    entityId: org.id,
+    type: 'logo',
+  });
+
+  await updateOrganizationProfile(org.id, { logoUrl: media.url });
+  return getMyOrganizationProfile(organizerUserId);
+}
+
+export async function removeOrgLogoService(organizerUserId) {
+  const org = await getOrganizationByOwnerId(organizerUserId);
+  if (!org) throw errorResponses.notFound('Organization not found');
+
+  if (org.logoUrl) {
+    await deleteMediaObject(org.logoUrl).catch(() => {});
+    await updateOrganizationProfile(org.id, { logoUrl: null });
+  }
+
+  return getMyOrganizationProfile(organizerUserId);
+}
+
+export async function uploadOrgBannerService(organizerUserId, file) {
+  const org = await getOrganizationByOwnerId(organizerUserId);
+  if (!org) throw errorResponses.notFound('Organization not found');
+
+  const media = await replaceMediaObject({
+    oldKeyOrUrl: org.coverUrl,
+    newFile: file,
+    category: 'organizations',
+    entityId: org.id,
+    type: 'banner',
+  });
+
+  await updateOrganizationProfile(org.id, { coverUrl: media.url });
+  return getMyOrganizationProfile(organizerUserId);
+}
+
+export async function removeOrgBannerService(organizerUserId) {
+  const org = await getOrganizationByOwnerId(organizerUserId);
+  if (!org) throw errorResponses.notFound('Organization not found');
+
+  if (org.coverUrl) {
+    await deleteMediaObject(org.coverUrl).catch(() => {});
+    await updateOrganizationProfile(org.id, { coverUrl: null });
+  }
+
+  return getMyOrganizationProfile(organizerUserId);
+}
+

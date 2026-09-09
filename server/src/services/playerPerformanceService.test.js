@@ -104,6 +104,38 @@ describe('Player Performance Service & Logic', () => {
       expect(stats.rating.breakdown.placement).toBeDefined();
       expect(stats.rating.breakdown.volume).toBeDefined();
     });
+
+    it('calculates deterministic period-over-period trend comparison when sample is sufficient', () => {
+      const now = Date.now();
+      const recentMatches = [
+        { placement: 1, kills: 7, damage: 1100, playedAt: new Date(now - 1 * 86400000) },
+        { placement: 2, kills: 6, damage: 950, playedAt: new Date(now - 2 * 86400000) },
+        { placement: 1, kills: 8, damage: 1200, playedAt: new Date(now - 3 * 86400000) },
+      ];
+      const prevMatches = [
+        { placement: 8, kills: 2, damage: 400, playedAt: new Date(now - 8 * 86400000) },
+        { placement: 6, kills: 3, damage: 500, playedAt: new Date(now - 9 * 86400000) },
+        { placement: 7, kills: 2, damage: 450, playedAt: new Date(now - 10 * 86400000) },
+      ];
+
+      const stats = calculatePerformanceStats([], [...recentMatches, ...prevMatches], []);
+      expect(stats.recentForm.recentTrend.sampleSufficient).toBe(true);
+      expect(stats.recentForm.recentTrend.trendDirection).toBe('Improving');
+      expect(stats.recentForm.recentTrend.killsDelta).toBeGreaterThan(0);
+      expect(stats.recentForm.recentTrend.damageDelta).toBeGreaterThan(0);
+      expect(stats.recentForm.recentTrend.placementDelta).toBeLessThan(0); // Lower rank number is better
+    });
+
+    it('returns sampleSufficient: false when either period has fewer than 3 matches', () => {
+      const now = Date.now();
+      const recentMatches = [
+        { placement: 1, kills: 7, damage: 1100, playedAt: new Date(now - 1 * 86400000) },
+      ];
+
+      const stats = calculatePerformanceStats([], recentMatches, []);
+      expect(stats.recentForm.recentTrend.sampleSufficient).toBe(false);
+      expect(stats.recentForm.recentTrend.message).toContain('Not enough data for a reliable trend');
+    });
   });
 
   describe('Achievements Calculation', () => {

@@ -200,8 +200,40 @@ p {
   background: rgba(98, 35, 35, 0.32);
 }
 
+.form-success {
+  padding: 14px 16px;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-radius: 5px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #a7f3d0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
 .field-error {
   font-size: 0.9rem;
+}
+
+.auth-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 8px;
+}
+
+.auth-label-row label {
+  margin-top: 0;
+}
+
+.auth-sublink {
+  color: #7dd3fc;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-sublink:hover {
+  text-decoration: underline;
 }
 
 .form-footnote {

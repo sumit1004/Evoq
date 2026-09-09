@@ -39,7 +39,10 @@ export function LoginPage() {
         <label htmlFor="login-email">Email</label>
         <input id="login-email" name="email" type="email" autoComplete="email" value={form.email} onChange={updateField} aria-invalid={Boolean(state.fields.email)} />
         {state.fields.email && <span className="field-error">{state.fields.email}</span>}
-        <label htmlFor="login-password">Password</label>
+        <div className="auth-label-row">
+          <label htmlFor="login-password">Password</label>
+          <Link to="/forgot-password" className="auth-sublink">Forgot password?</Link>
+        </div>
         <input id="login-password" name="password" type="password" autoComplete="current-password" value={form.password} onChange={updateField} aria-invalid={Boolean(state.fields.password)} />
         {state.fields.password && <span className="field-error">{state.fields.password}</span>}
         <button className="button primary-button" type="submit" disabled={state.loading}>{state.loading ? 'Signing in...' : 'Login'}</button>

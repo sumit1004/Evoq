@@ -48,30 +48,36 @@ export async function getProfileByUserId(userId, connection = pool) {
 }
 
 export async function getProfileByEvoqId(evoqId, connection = pool) {
+  const cleanId = String(evoqId || '').trim();
+  const numericId = !isNaN(Number(cleanId)) && Number(cleanId) > 0 ? Number(cleanId) : -1;
+
   const [rows] = await connection.query(
     `SELECT 
        u.id AS user_id,
        u.name,
        u.created_at AS account_created_at,
-       pp.unique_player_id,
+       COALESCE(pp.unique_player_id, CONCAT('EVOQ-P-', u.id)) AS unique_player_id,
        pp.in_game_name,
        pp.game_uid,
        pp.country,
        pp.city,
        pp.bio,
        pp.avatar_url,
-       pp.is_public,
-       pp.show_game_uid,
-       pp.show_team,
-       pp.show_performance,
-       pp.show_tournaments,
-       pp.show_practice,
-       pp.show_achievements,
+       COALESCE(pp.is_public, 1) AS is_public,
+       COALESCE(pp.show_game_uid, 0) AS show_game_uid,
+       COALESCE(pp.show_team, 1) AS show_team,
+       COALESCE(pp.show_performance, 1) AS show_performance,
+       COALESCE(pp.show_tournaments, 1) AS show_tournaments,
+       COALESCE(pp.show_practice, 1) AS show_practice,
+       COALESCE(pp.show_achievements, 1) AS show_achievements,
        pp.created_at AS profile_created_at
-     FROM player_profiles pp
-     JOIN users u ON u.id = pp.user_id
-     WHERE pp.unique_player_id = ? LIMIT 1`,
-    [evoqId],
+     FROM users u
+     LEFT JOIN player_profiles pp ON pp.user_id = u.id
+     WHERE pp.unique_player_id = ? 
+        OR LOWER(pp.unique_player_id) = LOWER(?)
+        OR u.id = ?
+     LIMIT 1`,
+    [cleanId, cleanId, numericId],
   );
   return rows[0] || null;
 }
