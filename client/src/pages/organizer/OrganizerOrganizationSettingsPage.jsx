@@ -36,6 +36,7 @@ export function OrganizerOrganizationSettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState('');
 
   const logoInputRef = useRef(null);
@@ -45,6 +46,7 @@ export function OrganizerOrganizationSettingsPage() {
     try {
       setLoading(true);
       setError('');
+      setFieldErrors({});
       const data = await fetchMyOrganization();
       setOrgId(data.id);
       setVerified(Boolean(data.verified));
@@ -83,26 +85,69 @@ export function OrganizerOrganizationSettingsPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    setFieldErrors((prev) => ({ ...prev, [name]: '' }));
+    setError('');
+    setSuccess('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+    setError('');
+    setSuccess('');
+
+    // Pre-validation on client side
+    const trimmedName = formData.name.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setFieldErrors({ name: 'Organization name must be at least 2 characters' });
+      setError('Please resolve the validation issues below.');
+      return;
+    }
+
     try {
       setSaving(true);
-      setError('');
-      setSuccess('');
       const payload = {
-        ...formData,
+        name: trimmedName,
+        slug: formData.slug.trim().toLowerCase() || null,
+        description: formData.description.trim() || null,
+        about: formData.about.trim() || null,
+        logoUrl: formData.logoUrl.trim() || null,
+        coverUrl: formData.coverUrl.trim() || null,
+        country: formData.country.trim() || null,
+        city: formData.city.trim() || null,
         foundedYear: formData.foundedYear ? Number(formData.foundedYear) : null,
+        websiteUrl: formData.websiteUrl.trim() || null,
+        discordUrl: formData.discordUrl.trim() || null,
+        twitterUrl: formData.twitterUrl.trim() || null,
+        instagramUrl: formData.instagramUrl.trim() || null,
+        isPublic: Boolean(formData.isPublic),
       };
+
       const updated = await updateMyOrganization(payload);
       setSuccess('Organization profile updated successfully.');
-      if (updated.slug) {
-        setFormData((prev) => ({ ...prev, slug: updated.slug }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        name: updated.name || prev.name,
+        slug: updated.slug || '',
+        description: updated.description || '',
+        about: updated.about || '',
+        country: updated.country || '',
+        city: updated.city || '',
+        foundedYear: updated.foundedYear || prev.foundedYear,
+        websiteUrl: updated.websiteUrl || '',
+        discordUrl: updated.discordUrl || '',
+        twitterUrl: updated.twitterUrl || '',
+        instagramUrl: updated.instagramUrl || '',
+        isPublic: updated.isPublic !== undefined ? updated.isPublic : prev.isPublic,
+      }));
     } catch (err) {
       const norm = normalizeApiError(err);
-      setError(norm.message);
+      if (norm.details?.body && typeof norm.details.body === 'object') {
+        setFieldErrors(norm.details.body);
+        setError('Please fix the errors below and try again.');
+      } else {
+        setError(norm.message);
+      }
     } finally {
       setSaving(false);
     }
@@ -313,7 +358,9 @@ export function OrganizerOrganizationSettingsPage() {
                 onChange={handleChange}
                 required
                 maxLength={180}
+                aria-invalid={Boolean(fieldErrors.name)}
               />
+              {fieldErrors.name && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.name}</span>}
             </div>
 
             <div className="field-group">
@@ -326,10 +373,15 @@ export function OrganizerOrganizationSettingsPage() {
                 value={formData.slug}
                 onChange={handleChange}
                 maxLength={80}
+                aria-invalid={Boolean(fieldErrors.slug)}
               />
-              <small style={{ color: '#8b949e', fontSize: '0.75rem' }}>
-                Letters, numbers, and hyphens only (e.g. /organization/my-org)
-              </small>
+              {fieldErrors.slug ? (
+                <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.slug}</span>
+              ) : (
+                <small style={{ color: '#8b949e', fontSize: '0.75rem' }}>
+                  Letters, numbers, and hyphens only (e.g. /organization/my-org)
+                </small>
+              )}
             </div>
           </div>
 
@@ -343,7 +395,9 @@ export function OrganizerOrganizationSettingsPage() {
               value={formData.description}
               onChange={handleChange}
               maxLength={255}
+              aria-invalid={Boolean(fieldErrors.description)}
             />
+            {fieldErrors.description && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.description}</span>}
           </div>
 
           <div className="org-form-grid">
@@ -357,7 +411,9 @@ export function OrganizerOrganizationSettingsPage() {
                 value={formData.country}
                 onChange={handleChange}
                 maxLength={100}
+                aria-invalid={Boolean(fieldErrors.country)}
               />
+              {fieldErrors.country && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.country}</span>}
             </div>
 
             <div className="field-group">
@@ -370,7 +426,9 @@ export function OrganizerOrganizationSettingsPage() {
                 value={formData.city}
                 onChange={handleChange}
                 maxLength={100}
+                aria-invalid={Boolean(fieldErrors.city)}
               />
+              {fieldErrors.city && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.city}</span>}
             </div>
           </div>
 
@@ -381,11 +439,13 @@ export function OrganizerOrganizationSettingsPage() {
               name="foundedYear"
               type="number"
               min={1970}
-              max={new Date().getFullYear()}
+              max={new Date().getFullYear() + 1}
               value={formData.foundedYear}
               onChange={handleChange}
               style={{ maxWidth: '180px' }}
+              aria-invalid={Boolean(fieldErrors.foundedYear)}
             />
+            {fieldErrors.foundedYear && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.foundedYear}</span>}
           </div>
         </div>
 
@@ -491,8 +551,10 @@ export function OrganizerOrganizationSettingsPage() {
               value={formData.about}
               onChange={handleChange}
               maxLength={3000}
+              aria-invalid={Boolean(fieldErrors.about)}
               style={{ width: '100%', background: '#0b0f17', border: '1px solid #1f2937', borderRadius: '4px', color: '#f6f8fb', padding: '0.75rem' }}
             />
+            {fieldErrors.about && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.about}</span>}
           </div>
         </div>
 
@@ -510,7 +572,9 @@ export function OrganizerOrganizationSettingsPage() {
                 value={formData.websiteUrl}
                 onChange={handleChange}
                 maxLength={255}
+                aria-invalid={Boolean(fieldErrors.websiteUrl)}
               />
+              {fieldErrors.websiteUrl && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.websiteUrl}</span>}
             </div>
 
             <div className="field-group">
@@ -523,7 +587,9 @@ export function OrganizerOrganizationSettingsPage() {
                 value={formData.discordUrl}
                 onChange={handleChange}
                 maxLength={255}
+                aria-invalid={Boolean(fieldErrors.discordUrl)}
               />
+              {fieldErrors.discordUrl && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.discordUrl}</span>}
             </div>
           </div>
 
@@ -538,7 +604,9 @@ export function OrganizerOrganizationSettingsPage() {
                 value={formData.twitterUrl}
                 onChange={handleChange}
                 maxLength={255}
+                aria-invalid={Boolean(fieldErrors.twitterUrl)}
               />
+              {fieldErrors.twitterUrl && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.twitterUrl}</span>}
             </div>
 
             <div className="field-group">
@@ -551,7 +619,9 @@ export function OrganizerOrganizationSettingsPage() {
                 value={formData.instagramUrl}
                 onChange={handleChange}
                 maxLength={255}
+                aria-invalid={Boolean(fieldErrors.instagramUrl)}
               />
+              {fieldErrors.instagramUrl && <span className="field-error" style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{fieldErrors.instagramUrl}</span>}
             </div>
           </div>
         </div>
@@ -583,4 +653,3 @@ export function OrganizerOrganizationSettingsPage() {
     </section>
   );
 }
-

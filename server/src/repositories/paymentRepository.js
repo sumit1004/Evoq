@@ -25,6 +25,10 @@ export async function getOrganizerPaymentAccounts(organizerId) {
 }
 
 export async function upsertPaymentAccount(organizerId, input) {
+  const isManualUpi = input.provider === 'MANUAL_UPI';
+  const status = input.status || (isManualUpi ? 'ACTIVE' : 'PENDING');
+  const onboardingStatus = input.onboardingStatus || (isManualUpi ? 'COMPLETED' : 'NOT_CONNECTED');
+
   const [result] = await pool.query(
     `INSERT INTO payment_accounts (organizer_id, provider, provider_account_id, status, onboarding_status, currency)
      VALUES (?, ?, ?, ?, ?, ?)
@@ -33,8 +37,8 @@ export async function upsertPaymentAccount(organizerId, input) {
       organizerId,
       input.provider,
       input.providerAccountId || null,
-      input.status || 'ACTIVE',
-      input.onboardingStatus || 'COMPLETED',
+      status,
+      onboardingStatus,
       input.currency || 'INR',
     ],
   );

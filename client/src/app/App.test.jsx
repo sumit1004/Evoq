@@ -124,26 +124,5 @@ describe('App routing', () => {
     expect(screen.getAllByText('Find Player').length).toBeGreaterThan(0);
     window.localStorage.clear();
   });
-
-  it('renders the forgot password form and login link', () => {
-    render(
-      <MemoryRouter initialEntries={['/forgot-password']}>
-        <App />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole('heading', { name: 'Forgot Password' })).not.toBeNull();
-    expect(screen.getByLabelText('Account Email')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Send Reset Link' })).not.toBeNull();
-  });
-
-  it('renders the reset password interface when visiting reset link', () => {
-    render(
-      <MemoryRouter initialEntries={['/reset-password/1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef']}>
-        <App />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole('heading', { name: 'Reset Password' })).not.toBeNull();
-  });
 });
+

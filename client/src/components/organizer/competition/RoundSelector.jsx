@@ -5,6 +5,7 @@ export function RoundSelector({
   onCreateRoundClick,
   onStartRound,
   onCompleteRound,
+  onDeleteRound,
   isReadOnly = false,
   canCreateRound = true,
   canManageRound = true,
@@ -72,6 +73,16 @@ export function RoundSelector({
               onClick={() => onCompleteRound(selectedRound.id)}
             >
               Complete Round
+            </button>
+          )}
+          {onDeleteRound && selectedRound.status !== 'COMPLETED' && (
+            <button
+              className="button ghost-button danger-text"
+              type="button"
+              style={{ minHeight: '32px', padding: '0 10px', fontSize: '12px', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+              onClick={() => onDeleteRound(selectedRound.id)}
+            >
+              Delete Round
             </button>
           )}
         </div>

@@ -27,6 +27,15 @@ function checkRateLimit(userId) {
 
   valid.push(now);
   userMessageTimestamps.set(userId, valid);
+
+  // Periodic pruning of expired user entries
+  if (userMessageTimestamps.size > 200) {
+    for (const [uid, list] of userMessageTimestamps.entries()) {
+      if (!list.some((t) => now - t < 10_000)) {
+        userMessageTimestamps.delete(uid);
+      }
+    }
+  }
 }
 
 /**

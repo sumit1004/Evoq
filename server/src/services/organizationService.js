@@ -80,20 +80,65 @@ export async function updateMyOrganizationProfile(organizerUserId, updates) {
     throw errorResponses.notFound('Organization not found');
   }
 
-  // If slug is updated, check uniqueness
-  if (updates.slug && updates.slug.trim() && updates.slug !== org.slug) {
-    const cleanSlug = updates.slug.trim().toLowerCase();
-    const [existing] = await pool.query(
-      'SELECT id FROM organizations WHERE slug = ? AND id <> ? LIMIT 1',
-      [cleanSlug, org.id],
-    );
-    if (existing.length > 0) {
-      throw errorResponses.conflict('Organization slug is already taken. Please choose another.');
+  const normalized = { ...updates };
+
+  const stringFields = [
+    'description',
+    'about',
+    'logoUrl',
+    'coverUrl',
+    'country',
+    'city',
+    'websiteUrl',
+    'discordUrl',
+    'twitterUrl',
+    'instagramUrl',
+  ];
+
+  for (const field of stringFields) {
+    if (normalized[field] !== undefined) {
+      if (typeof normalized[field] === 'string') {
+        const trimmed = normalized[field].trim();
+        normalized[field] = trimmed.length > 0 ? trimmed : null;
+      }
     }
-    updates.slug = cleanSlug;
   }
 
-  await updateOrganizationProfile(org.id, updates);
+  if (normalized.name !== undefined) {
+    normalized.name = String(normalized.name).trim();
+  }
+
+  if (normalized.slug !== undefined) {
+    if (typeof normalized.slug === 'string' && normalized.slug.trim().length > 0) {
+      const cleanSlug = normalized.slug.trim().toLowerCase();
+      if (cleanSlug !== org.slug) {
+        const [existing] = await pool.query(
+          'SELECT id FROM organizations WHERE slug = ? AND id <> ? LIMIT 1',
+          [cleanSlug, org.id],
+        );
+        if (existing.length > 0) {
+          throw errorResponses.conflict('Organization slug is already taken. Please choose another.');
+        }
+      }
+      normalized.slug = cleanSlug;
+    } else {
+      normalized.slug = null;
+    }
+  }
+
+  if (normalized.foundedYear !== undefined) {
+    if (normalized.foundedYear === '' || normalized.foundedYear === null) {
+      normalized.foundedYear = null;
+    } else {
+      normalized.foundedYear = Number(normalized.foundedYear);
+    }
+  }
+
+  if (normalized.isPublic !== undefined) {
+    normalized.isPublic = Boolean(normalized.isPublic);
+  }
+
+  await updateOrganizationProfile(org.id, normalized);
   return getMyOrganizationProfile(organizerUserId);
 }
 

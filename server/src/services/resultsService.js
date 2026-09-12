@@ -239,6 +239,7 @@ export async function removeQualification(roundId, teamId, userId) {
       isWrite: true,
     });
   }
+  if (context.tournament_status === 'COMPLETED') throw errorResponses.conflict('Completed tournaments are read-only');
   if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed rounds are read-only');
   await repository.deleteQualification(roundId, teamId);
   await staffRepo.insertAuditLog({
@@ -356,6 +357,7 @@ export async function reopenQualifications(roundId, userId) {
       isWrite: true,
     });
   }
+  if (context.tournament_status === 'COMPLETED') throw errorResponses.conflict('Completed tournaments are read-only');
   if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed rounds are read-only');
 
   try {

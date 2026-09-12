@@ -1,12 +1,15 @@
 import mysql from 'mysql2/promise';
 import { config } from './env.js';
+import { logger } from '../utils/logger.js';
 
 export const pool = mysql.createPool({
   host: config.db.host,
   port: config.db.port,
   user: config.db.user,
   password: config.db.password,
-  database: config.db.database,
+  database: (process.env.NODE_ENV === 'test' || process.env.TEST_DB_NAME) 
+    ? (process.env.TEST_DB_NAME || 'evoq_test') 
+    : config.db.database,
   waitForConnections: true,
   connectionLimit: config.db.connectionLimit,
   maxIdle: config.db.connectionLimit,
@@ -17,6 +20,25 @@ export const pool = mysql.createPool({
   connectTimeout: config.db.connectTimeout,
   namedPlaceholders: true,
 });
+
+// Attach error listeners to the underlying pool to prevent unhandled event crashes
+if (pool.pool && typeof pool.pool.on === 'function') {
+  pool.pool.on('error', (err) => {
+    logger.error('database_pool_error', {
+      code: err?.code,
+      message: err?.message,
+      fatal: err?.fatal,
+    });
+  });
+  pool.pool.on('connection', (connection) => {
+    connection.on('error', (err) => {
+      logger.error('database_connection_error', {
+        code: err?.code,
+        message: err?.message,
+      });
+    });
+  });
+}
 
 export const DATABASE_ERROR_CODES = new Set([
   'ECONNREFUSED',

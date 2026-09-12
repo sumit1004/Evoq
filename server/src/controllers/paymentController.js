@@ -10,10 +10,16 @@ export const getPaymentAccount = asyncHandler(async (req, res) => {
 });
 
 export const connectPaymentAccount = asyncHandler(async (req, res) => {
-  const { provider, providerAccountId, status, onboardingStatus, currency } = req.body;
+  const { provider, providerAccountId, currency } = req.body;
   if (!provider) {
     throw errorResponses.validation({ provider: 'Provider is required' });
   }
+
+  // Server dictates state: MANUAL_UPI is immediately active; external gateways start as PENDING/NOT_CONNECTED
+  const isManualUpi = provider === 'MANUAL_UPI';
+  const status = isManualUpi ? 'ACTIVE' : 'PENDING';
+  const onboardingStatus = isManualUpi ? 'COMPLETED' : 'NOT_CONNECTED';
+
   const id = await paymentRepo.upsertPaymentAccount(req.user.id, {
     provider,
     providerAccountId,
@@ -21,7 +27,7 @@ export const connectPaymentAccount = asyncHandler(async (req, res) => {
     onboardingStatus,
     currency,
   });
-  const account = await paymentRepo.getPaymentAccountById(id);
+  const account = (id ? await paymentRepo.getPaymentAccountById(id) : null) || (await paymentRepo.findPaymentAccount(req.user.id, provider));
   res.status(200).json({ account });
 });
 

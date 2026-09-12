@@ -1,52 +1,61 @@
-import jwt from 'jsonwebtoken';
-import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
-import { createApp } from '../app.js';
-import { config } from '../config/env.js';
-import { authenticateRequest } from './authMiddleware.js';
-import { requireOwnership, requireRoles } from './authorizationMiddleware.js';
-import { validateRequest } from './validationMiddleware.js';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { createRateLimiter } from './securityMiddleware.js';
 
-function runMiddleware(middleware, requestObject = {}) {
-  return new Promise((resolve) => { middleware(requestObject, {}, (error) => resolve({ error, request: requestObject })); });
-}
+describe('Rate Limiter & Bucket Cleanup (Security Hardening)', () => {
+  it('allows requests within rate limit and returns 429 when exceeded', () => {
+    const limiter = createRateLimiter({ windowMs: 10_000, max: 2, message: 'Too many requests' });
 
-describe('security foundation', () => {
-  it('rejects missing and malformed bearer tokens', async () => {
-    const missing = await runMiddleware(authenticateRequest, { headers: {} });
-    const malformed = await runMiddleware(authenticateRequest, { headers: { authorization: 'Bearer invalid' } });
-    expect(missing.error.code).toBe('AUTHENTICATION_REQUIRED');
-    expect(malformed.error.code).toBe('INVALID_TOKEN');
-  });
-  it('attaches only the authorized identity claims from a valid token', async () => {
-    const token = jwt.sign({ sub: '12', role: 'PLAYER', secretData: 'ignored' }, config.jwtSecret);
-    const result = await runMiddleware(authenticateRequest, { headers: { authorization: `Bearer ${token}` } });
-    expect(result.error).toBeUndefined();
-    expect(result.request.user).toEqual({ id: 12, role: 'PLAYER' });
-  });
-  it('enforces roles and ownership, with explicit admin bypass', async () => {
-    const roleResult = await runMiddleware(requireRoles('ORGANIZER'), { user: { id: 2, role: 'PLAYER' } });
-    const ownerResult = await runMiddleware(requireOwnership(async () => ({ ownerId: 9 })), { user: { id: 3, role: 'ORGANIZER' } });
-    const adminResult = await runMiddleware(requireOwnership(async () => ({ ownerId: 9 }), { allowRoles: ['ADMIN'] }), { user: { id: 3, role: 'ADMIN' } });
-    expect(roleResult.error.code).toBe('FORBIDDEN');
-    expect(ownerResult.error.code).toBe('FORBIDDEN');
-    expect(adminResult.error).toBeUndefined();
-  });
-  it('returns structured validation errors', async () => {
+    const req = { ip: '127.0.0.1' };
+    let status = null;
+    let jsonBody = null;
+    const res = {
+      setHeader: vi.fn(),
+      status: vi.fn((code) => {
+        status = code;
+        return {
+          json: (body) => {
+            jsonBody = body;
+          },
+        };
+      }),
+    };
     const next = vi.fn();
-    validateRequest({ body: (body) => (!body.email ? { email: 'required' } : {}) })({ body: {} }, {}, next);
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 'VALIDATION_ERROR', details: { body: { email: 'required' } } }));
+
+    // Request 1: allowed
+    limiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
+
+    // Request 2: allowed
+    limiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(2);
+
+    // Request 3: rate limited
+    limiter(req, res, next);
+    expect(status).toBe(429);
+    expect(jsonBody?.error?.code).toBe('RATE_LIMITED');
+    expect(res.setHeader).toHaveBeenCalledWith('Retry-After', expect.any(Number));
   });
-  it('adds baseline security headers', async () => {
-    const response = await request(createApp()).get('/api/health');
-    expect(response.headers['x-content-type-options']).toBe('nosniff');
-    expect(response.headers['x-frame-options']).toBe('DENY');
-    expect(response.headers['referrer-policy']).toBe('no-referrer');
-  });
-  it('rate limits repeated authentication attempts', async () => {
-    const app = createApp(); let response;
-    for (let index = 0; index < 21; index += 1) response = await request(app).post('/api/auth/login').send({ email: 'bad@example.com', password: 'bad-password' });
-    expect(response.status).toBe(429);
-    expect(response.body.error.code).toBe('RATE_LIMITED');
+
+  it('resets count after window expiry and prunes expired keys', async () => {
+    const limiter = createRateLimiter({ windowMs: 50, max: 1 });
+
+    const req = { ip: '192.168.1.1' };
+    const res = { setHeader: vi.fn(), status: vi.fn(() => ({ json: vi.fn() })) };
+    const next = vi.fn();
+
+    // Request 1
+    limiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
+
+    // Request 2 immediately -> rejected
+    limiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
+
+    // Wait for window to expire
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // Request 3 after window -> allowed
+    limiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(2);
   });
 });

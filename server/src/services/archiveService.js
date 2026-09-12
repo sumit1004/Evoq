@@ -85,6 +85,7 @@ export async function completeTournament(tournamentId, organizerId) {
     }
 
     const qualifiedTeams = await repository.getQualifications(tournamentId, connection);
+    const announcements = await repository.getTournamentAnnouncements(tournamentId, connection);
     winners = finalLeaderboard.slice(0, 3);
     const summary = {
       finalRoundId: finalRound.id,
@@ -93,6 +94,7 @@ export async function completeTournament(tournamentId, organizerId) {
       winnerTeamId: winners[0]?.teamId || null,
       winnerTeamName: winners[0]?.teamName || null,
       totalRankedTeams: finalLeaderboard.length,
+      announcements,
     };
 
     mediaPaths = await repository.getResultMediaPaths(tournamentId, connection);

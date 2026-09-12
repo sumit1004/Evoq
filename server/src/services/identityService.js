@@ -9,6 +9,7 @@ import {
   findUserById,
   updateIdentityProfile,
 } from '../repositories/identityRepository.js';
+import { listScoutAssignedTournaments } from '../repositories/staffRepository.js';
 import { generateUniquePlayerId, normalizeEmail, serializeIdentity } from '../utils/identity.js';
 
 const passwordCost = 12;
@@ -17,14 +18,43 @@ function isDuplicateError(error) {
   return error?.code === 'ER_DUP_ENTRY';
 }
 
+// In-memory token version cache with TTL to prevent database queries on normal requests
+const tokenVersionCache = new Map();
+const TOKEN_VERSION_TTL_MS = 60_000;
+
+export async function getUserTokenVersion(userId) {
+  if (process.env.NODE_ENV !== 'test') {
+    const cached = tokenVersionCache.get(userId);
+    const now = Date.now();
+    if (cached && now < cached.expiresAt) {
+      return cached.version;
+    }
+  }
+  const user = await findUserById(userId);
+  if (!user) {
+    return null;
+  }
+  const version = Number(user.token_version) || 1;
+  tokenVersionCache.set(userId, { version, expiresAt: Date.now() + TOKEN_VERSION_TTL_MS });
+  return version;
+}
+
+export function invalidateUserTokenVersion(userId) {
+  tokenVersionCache.delete(userId);
+}
+
+export function setUserTokenVersion(userId, version) {
+  tokenVersionCache.set(userId, { version: Number(version) || 1, expiresAt: Date.now() + TOKEN_VERSION_TTL_MS });
+}
+
 function createAccessToken(user) {
-  return jwt.sign({ role: user.role, tokenVersion: user.token_version || 1 }, config.jwtSecret, {
+  const version = Number(user.token_version) || 1;
+  setUserTokenVersion(user.id, version);
+  return jwt.sign({ role: user.role, tokenVersion: version }, config.jwtSecret, {
     subject: String(user.id),
     expiresIn: config.jwtExpiresIn,
   });
 }
-
-import { listScoutAssignedTournaments } from '../repositories/staffRepository.js';
 
 async function getIdentity(userId) {
   const user = await findUserById(userId);

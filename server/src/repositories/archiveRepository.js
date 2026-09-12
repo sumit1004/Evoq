@@ -38,12 +38,24 @@ export async function getFinalLeaderboard(tournamentId, connection = pool) {
 }
 export async function getQualifications(tournamentId, connection = pool) { const [rows] = await connection.query('SELECT q.round_id, q.team_id, t.name AS team_name, q.source_group_id, q.selected_at FROM qualifications q JOIN rounds r ON r.id = q.round_id JOIN teams t ON t.id = q.team_id WHERE r.tournament_id = ? ORDER BY r.round_number, t.name', [tournamentId]); return rows.map((row) => ({ roundId: row.round_id, teamId: row.team_id, teamName: row.team_name, sourceGroupId: row.source_group_id, selectedAt: row.selected_at })); }
 export async function getResultMediaPaths(tournamentId, connection = pool) { const [rows] = await connection.query('SELECT mr.media_path FROM match_results mr JOIN matches m ON m.id = mr.match_id JOIN `groups` g ON g.id = m.group_id JOIN rounds r ON r.id = g.round_id WHERE r.tournament_id = ? AND mr.media_path IS NOT NULL', [tournamentId]); return rows.map((row) => row.media_path); }
+export async function getTournamentAnnouncements(tournamentId, connection = pool) {
+  const [rows] = await connection.query(
+    'SELECT a.id, a.message, a.created_by, u.name AS creator_name, a.created_at FROM announcements a JOIN users u ON u.id = a.created_by WHERE a.tournament_id = ? ORDER BY a.created_at ASC',
+    [tournamentId]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    message: r.message,
+    createdBy: r.created_by,
+    creatorName: r.creator_name,
+    createdAt: r.created_at,
+  }));
+}
 export async function insertArchive(input, connection) { const [result] = await connection.query('INSERT INTO tournament_archives (tournament_id, tournament_name, completed_at, registration_count, final_leaderboard_json, qualified_teams_json, winners_json, summary_json) VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)', [input.tournamentId, input.tournamentName, input.registrationCount, JSON.stringify(input.finalLeaderboard), JSON.stringify(input.qualifiedTeams), JSON.stringify(input.winners), JSON.stringify(input.summary)]); return result.insertId; }
 export async function markCompletedAndCleanup(tournamentId, connection) {
   await connection.query('UPDATE tournaments SET status = \'COMPLETED\', completed_at = CURRENT_TIMESTAMP WHERE id = ?', [tournamentId]);
   await connection.query('DELETE FROM chat_messages WHERE group_id IN (SELECT id FROM `groups` WHERE round_id IN (SELECT id FROM rounds WHERE tournament_id = ?))', [tournamentId]);
   await connection.query('DELETE FROM notifications WHERE tournament_id = ?', [tournamentId]);
-  await connection.query('DELETE FROM announcements WHERE tournament_id = ?', [tournamentId]);
   await connection.query("UPDATE `groups` g JOIN rounds r ON r.id = g.round_id SET g.room_id = NULL, g.room_password = NULL WHERE r.tournament_id = ?", [tournamentId]);
 }
 export async function listArchives(connection = pool) { const [rows] = await connection.query('SELECT id, tournament_id, tournament_name, completed_at, registration_count, final_leaderboard_json, qualified_teams_json, winners_json, summary_json, created_at FROM tournament_archives ORDER BY completed_at DESC'); return rows; }

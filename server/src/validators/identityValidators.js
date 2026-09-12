@@ -40,23 +40,3 @@ export function validateProfilePatch(body = {}) {
   }
   return errors;
 }
-
-export function validateForgotPassword(body = {}) {
-  const errors = {};
-  if (typeof body.email !== 'string' || !/^\S+@\S+\.\S+$/.test(body.email.trim())) {
-    errors.email = 'A valid email is required';
-  }
-  return errors;
-}
-
-export function validateResetPassword(body = {}) {
-  const errors = {};
-  if (typeof body.token !== 'string' || !/^[0-9a-f]{64}$/i.test(body.token.trim())) {
-    errors.token = 'A valid 64-character reset token is required';
-  }
-  if (typeof body.newPassword !== 'string' || body.newPassword.length < 8 || body.newPassword.length > 128) {
-    errors.newPassword = 'Password must be between 8 and 128 characters';
-  }
-  return errors;
-}
-

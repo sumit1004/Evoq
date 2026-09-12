@@ -20,12 +20,14 @@ import * as authorizationService from '../services/authorizationService.js';
 import { errorResponses } from '../errors/AppError.js';
 
 export const listTournaments = asyncHandler(async (req, res) => {
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 12;
-  const search = req.query.search || '';
-  const status = req.query.status || '';
-  const entryType = req.query.entryType || '';
-  const sort = req.query.sort || 'default';
+  const rawPage = Number(req.query.page);
+  const rawLimit = Number(req.query.limit);
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const limit = Number.isInteger(rawLimit) && rawLimit > 0 && rawLimit <= 100 ? rawLimit : 12;
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const status = typeof req.query.status === 'string' ? req.query.status : '';
+  const entryType = typeof req.query.entryType === 'string' ? req.query.entryType : '';
+  const sort = typeof req.query.sort === 'string' ? req.query.sort : 'default';
 
   const filters = { page, limit, search, status, entryType, sort };
 

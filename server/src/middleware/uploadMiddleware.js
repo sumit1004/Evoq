@@ -28,12 +28,37 @@ const resultMediaStorage = multer.diskStorage({
   filename: (_req, _file, callback) => callback(null, `${Date.now()}-${randomUUID()}`),
 });
 
+const ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+const ALLOWED_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+
+function validateFileFilter(file, callback, label = 'image') {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext) || !ALLOWED_MIMES.has(file.mimetype)) {
+    return callback(new Error(`Only PNG, JPEG, and WEBP ${label}s are allowed`));
+  }
+  return callback(null, true);
+}
+
 async function hasAllowedImageSignature(file) {
-  const header = await fsPromises.readFile(file.path);
-  if (file.mimetype === 'image/png') return header.length >= 8 && header.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  if (file.mimetype === 'image/jpeg') return header.length >= 3 && header.subarray(0, 3).equals(Buffer.from([255, 216, 255]));
-  if (file.mimetype === 'image/webp') return header.length >= 12 && header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP';
-  return false;
+  try {
+    const buffer = Buffer.alloc(16);
+    const fd = await fsPromises.open(file.path, 'r');
+    const { bytesRead } = await fd.read(buffer, 0, 16, 0);
+    await fd.close();
+
+    if (bytesRead < 8) return false;
+
+    // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+    const isPng = buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]));
+    // JPEG signature: FF D8 FF
+    const isJpeg = buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+    // WEBP signature: 'RIFF' .... 'WEBP'
+    const isWebp = bytesRead >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+
+    return isPng || isJpeg || isWebp;
+  } catch {
+    return false;
+  }
 }
 
 function validateStoredImage(req, next) {
@@ -51,10 +76,7 @@ function validateStoredImage(req, next) {
 export const resultMediaUpload = multer({
   storage: resultMediaStorage,
   limits: { fileSize: 10 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) return callback(new Error('Only PNG, JPEG, and WEBP result media are allowed'));
-    return callback(null, true);
-  },
+  fileFilter: (_req, file, callback) => validateFileFilter(file, callback, 'result media'),
 });
 
 export function uploadResultMedia(req, res, next) {
@@ -67,10 +89,7 @@ export function uploadResultMedia(req, res, next) {
 export const paymentEvidenceUpload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) return callback(new Error('Only PNG, JPEG, and WEBP payment screenshots are allowed'));
-    return callback(null, true);
-  },
+  fileFilter: (_req, file, callback) => validateFileFilter(file, callback, 'payment screenshot'),
 });
 
 const qrDirectory = path.resolve(config.uploadDirectory, 'payment-qrs');
@@ -84,10 +103,7 @@ const qrStorage = multer.diskStorage({
 export const qrUpload = multer({
   storage: qrStorage,
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) return callback(new Error('Only PNG, JPEG, and WEBP images are allowed'));
-    return callback(null, true);
-  },
+  fileFilter: (_req, file, callback) => validateFileFilter(file, callback, 'payment QR'),
 });
 export function uploadPaymentQr(req, res, next) {
   return qrUpload.single('paymentQr')(req, res, (error) => {
@@ -110,12 +126,7 @@ const tempStorage = multer.diskStorage({
 const teamLogoMulter = multer({
   storage: tempStorage,
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) {
-      return callback(new Error('Only PNG, JPEG, and WEBP team logos are allowed'));
-    }
-    return callback(null, true);
-  },
+  fileFilter: (_req, file, callback) => validateFileFilter(file, callback, 'team logo'),
 });
 
 export function uploadTeamLogo(req, res, next) {
@@ -128,12 +139,7 @@ export function uploadTeamLogo(req, res, next) {
 const orgLogoMulter = multer({
   storage: tempStorage,
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) {
-      return callback(new Error('Only PNG, JPEG, and WEBP organization logos are allowed'));
-    }
-    return callback(null, true);
-  },
+  fileFilter: (_req, file, callback) => validateFileFilter(file, callback, 'organization logo'),
 });
 
 export function uploadOrgLogo(req, res, next) {
@@ -146,12 +152,7 @@ export function uploadOrgLogo(req, res, next) {
 const orgBannerMulter = multer({
   storage: tempStorage,
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, callback) => {
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)) {
-      return callback(new Error('Only PNG, JPEG, and WEBP cover banners are allowed'));
-    }
-    return callback(null, true);
-  },
+  fileFilter: (_req, file, callback) => validateFileFilter(file, callback, 'cover banner'),
 });
 
 export function uploadOrgBanner(req, res, next) {

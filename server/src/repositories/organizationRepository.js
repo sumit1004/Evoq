@@ -403,7 +403,7 @@ export async function updateOrganizationProfile(organizationId, updates, connect
   for (const [k, val] of Object.entries(fieldMap)) {
     if (val !== undefined) {
       fields.push(`${sqlMap[k]} = ?`);
-      params.push(val);
+      params.push(val === '' ? null : val);
     }
   }
 

@@ -96,9 +96,7 @@ export function AuthProvider({ children }) {
           const url = error.config?.url || '';
           const isAuthAttempt =
             url.includes('/auth/login') ||
-            url.includes('/auth/signup') ||
-            url.includes('/auth/forgot-password') ||
-            url.includes('/auth/reset-password');
+            url.includes('/auth/signup');
           if (!isAuthAttempt) {
             logout();
           }

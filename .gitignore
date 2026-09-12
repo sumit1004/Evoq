@@ -2,7 +2,13 @@ node_modules/
 dist/
 coverage/
 .env
+.env.*
 .env.local
+.env.production
+.env.development
+.env.*.local
+*.log
 npm-debug.log*
 uploads/
 backups/
+.system_generated/

@@ -181,6 +181,11 @@ export function OrganizerTournamentPage() {
     }
   };
 
+  const handleCompleteTournament = () => {
+    setCompletionError('');
+    setShowCompletionModal(true);
+  };
+
   const handleConfirmCompletion = async () => {
     setCompletionLoading(true);
     setCompletionError('');

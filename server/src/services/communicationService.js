@@ -112,21 +112,25 @@ export async function sendChat(groupId, message, userId) {
 }
 
 export async function canJoinTournament(tournamentId, userId) {
-  const context = await repository.getTournamentAccess(tournamentId, userId);
+  const id = Number(tournamentId);
+  if (!Number.isSafeInteger(id) || id <= 0) return false;
+  const context = await repository.getTournamentAccess(id, userId);
   if (context && (context.organizer_id === userId || Boolean(context.is_participant))) {
     return true;
   }
-  const staff = await resolveTournamentStaffContext(tournamentId, userId);
-  return staff.isStaff;
+  const staff = await resolveTournamentStaffContext(id, userId);
+  return Boolean(staff?.isStaff);
 }
 
 export async function canJoinGroup(groupId, userId) {
-  const context = await repository.getGroupAccess(groupId, userId);
+  const id = Number(groupId);
+  if (!Number.isSafeInteger(id) || id <= 0) return false;
+  const context = await repository.getGroupAccess(id, userId);
   if (!context) return false;
   if (context.is_organizer || context.is_participant) return true;
   const staff = await resolveTournamentStaffContext(context.tournament_id, userId);
-  if (staff.isStaff) {
-    return staff.allGroups || staff.assignedGroupIds.has(Number(groupId));
+  if (staff?.isStaff) {
+    return Boolean(staff.allGroups || staff.assignedGroupIds?.has(Number(id)));
   }
   return false;
 }

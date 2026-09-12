@@ -9,7 +9,7 @@ import { hasActiveScoutRole } from '../../utils/workspaceRouting.js';
 
 export function ScoutWorkspacePage() {
   const { identity, loading: authLoading } = useAuth();
-  const { socket } = useSocket();
+  const { on } = useSocket();
   const navigate = useNavigate();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,17 +37,16 @@ export function ScoutWorkspacePage() {
 
   // Listen for realtime revocation/permission update events
   useEffect(() => {
-    if (!socket) return;
     const handleUpdate = () => {
       loadScoutTournaments();
     };
-    socket.on('staff_access_updated', handleUpdate);
-    socket.on('staff_access_revoked', handleUpdate);
+    const offUpdated = on?.('staff_access_updated', handleUpdate);
+    const offRevoked = on?.('staff_access_revoked', handleUpdate);
     return () => {
-      socket.off('staff_access_updated', handleUpdate);
-      socket.off('staff_access_revoked', handleUpdate);
+      offUpdated?.();
+      offRevoked?.();
     };
-  }, [socket]);
+  }, [on]);
 
   if (authLoading) {
     return <div className="route-loading" role="status">Restoring your EVOQ session...</div>;

@@ -421,6 +421,10 @@ export async function reviewTournamentRegistration(registrationId, input, userId
       throw errorResponses.notFound('Registration not found');
     }
 
+    if (registration.tournamentStatus === 'COMPLETED') {
+      throw errorResponses.conflict('Completed tournaments are read-only');
+    }
+
     if (registration.organizerId !== userId) {
       const requiredPerm = input.status === 'VERIFIED' ? PERMISSIONS.VERIFY_REGISTRATIONS : PERMISSIONS.REJECT_REGISTRATIONS;
       await assertTournamentAuthorization(registration.tournamentId, userId, {

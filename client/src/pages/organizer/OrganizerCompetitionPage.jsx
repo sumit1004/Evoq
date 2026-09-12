@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, useOutletContext } from 'react-router-dom';
-import { fetchTournament, fetchTournamentAccess, fetchScoringConfig } from '../../services/tournamentApi.js';
+import { fetchTournament, updateTournament, deleteTournament, fetchTournamentAccess, fetchScoringConfig } from '../../services/tournamentApi.js';
 import { completeTournament } from '../../services/archiveApi.js';
 import {
   fetchCompetitionSummary,
@@ -86,6 +86,7 @@ export function OrganizerCompetitionPage() {
   const [completionError, setCompletionError] = useState('');
   const [completionLoading, setCompletionLoading] = useState(false);
   const [deleteConfirmGroup, setDeleteConfirmGroup] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Determine current navigation from URL params (SPA navigation without reloading)
   const paramRoundId = Number(searchParams.get('round')) || null;
@@ -343,11 +344,33 @@ export function OrganizerCompetitionPage() {
     updateUrlState({ round: roundId, group: null, groupTab: null });
   };
 
+  const handleStartTournamentLive = async () => {
+    setActionLoading(true);
+    setError('');
+    try {
+      const res = await updateTournament(tournamentId, { status: 'LIVE' });
+      setTournament(res.tournament);
+      setNotice('Tournament is now LIVE! Competition operations and rounds are unlocked.');
+    } catch (err) {
+      setError(err.message || 'Failed to start tournament.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCreateRound = async (e) => {
     e.preventDefault();
     setActionLoading(true);
     setError('');
     try {
+      if (tournament?.status !== 'LIVE') {
+        if (!isScout || permissions.has('START_TOURNAMENT')) {
+          const res = await updateTournament(tournamentId, { status: 'LIVE' });
+          setTournament(res.tournament);
+        } else {
+          throw new Error('Tournament must be transitioned to LIVE before creating competition rounds.');
+        }
+      }
       const result = await createRound(tournamentId, {
         roundNumber: Number(createRoundForm.roundNumber),
         name: createRoundForm.name.trim(),
@@ -420,6 +443,42 @@ export function OrganizerCompetitionPage() {
       setCompletionError(err.message || 'Failed to complete tournament.');
     } finally {
       setCompletionLoading(false);
+    }
+  };
+
+  const handleDeleteRound = async (roundId) => {
+    const id = typeof roundId === 'object' ? roundId?.id : roundId;
+    const targetRound = rounds.find((r) => r.id === id);
+    if (!window.confirm(`Are you sure you want to permanently delete "${targetRound?.name || `Round ${id}`}"? This will delete all associated groups and matches.`)) {
+      return;
+    }
+    setActionLoading(true);
+    setError('');
+    try {
+      await deleteRound(id);
+      const remaining = rounds.filter((r) => r.id !== id);
+      setRounds(remaining);
+      setNotice(`Round deleted successfully.`);
+      const nextRound = remaining[0];
+      updateUrlState({ round: nextRound?.id || null, group: null, groupTab: null });
+    } catch (err) {
+      setError(err.message || 'Failed to delete round.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteTournament = async () => {
+    setActionLoading(true);
+    setError('');
+    try {
+      await deleteTournament(tournamentId);
+      navigate('/organizer/tournaments');
+    } catch (err) {
+      setError(err.message || 'Failed to delete tournament.');
+      setShowDeleteModal(false);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -567,7 +626,11 @@ export function OrganizerCompetitionPage() {
     }
   };
 
-  const handleDeleteMatch = async (matchId) => {
+  const handleDeleteMatch = async (matchOrId) => {
+    const matchId = typeof matchOrId === 'object' ? matchOrId?.id : matchOrId;
+    if (typeof matchOrId === 'object' && !window.confirm(`Delete match "${matchOrId?.name || `Match ${matchId}`}"?`)) {
+      return;
+    }
     setActionLoading(true);
     try {
       await deleteMatch(matchId);
@@ -734,10 +797,44 @@ export function OrganizerCompetitionPage() {
         permissions={permissions}
         isReadOnly={isReadOnly}
         onOpenCompleteModal={() => setShowCompletionModal(true)}
+        onOpenDeleteModal={() => setShowDeleteModal(true)}
         error={error}
         notice={notice}
         onClearNotice={() => setNotice('')}
       />
+
+      {/* Lifecycle Action Notice for Non-Live Tournaments */}
+      {tournament && tournament.status !== 'LIVE' && tournament.status !== 'COMPLETED' && (
+        <div style={{
+          background: 'rgba(246, 196, 83, 0.1)',
+          border: '1px solid rgba(246, 196, 83, 0.3)',
+          borderRadius: '8px',
+          padding: '14px 18px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div>
+            <strong style={{ color: '#f6c453' }}>Tournament Status: {tournament.status.replaceAll('_', ' ')}</strong>
+            <span style={{ color: '#cdd6e2', marginLeft: '8px', fontSize: '13px' }}>
+              Tournaments must be transitioned to <strong>LIVE</strong> status for round creation and match management.
+            </span>
+          </div>
+          {(!isScout || permissions.has('START_TOURNAMENT')) && (
+            <button
+              className="button primary-button"
+              style={{ minHeight: '34px', padding: '0 14px', fontSize: '13px' }}
+              disabled={actionLoading}
+              onClick={handleStartTournamentLive}
+            >
+              {actionLoading ? 'Starting...' : 'Start Tournament (LIVE) →'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Progression Timeline */}
       <CompetitionProgressTimeline tournament={tournament} rounds={rounds} />
@@ -750,6 +847,7 @@ export function OrganizerCompetitionPage() {
         onCreateRoundClick={() => setShowCreateRoundModal(true)}
         onStartRound={handleStartRound}
         onCompleteRound={handleCompleteRound}
+        onDeleteRound={handleDeleteRound}
         isReadOnly={isReadOnly}
         canCreateRound={canCreateRound}
         canManageRound={canManageRound}
@@ -1001,6 +1099,83 @@ export function OrganizerCompetitionPage() {
         loading={completionLoading}
         error={completionError}
       />
+
+      {/* Delete Tournament Modal */}
+      {showDeleteModal && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1300,
+            padding: '20px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowDeleteModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#1c2128',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              borderRadius: '12px',
+              padding: '28px',
+              width: 'min(480px, 100%)',
+              boxShadow: '0 16px 48px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <span style={{ fontSize: '24px' }}>⚠️</span>
+              <h3 style={{ margin: 0, color: '#ef4444', fontSize: '20px' }}>Delete Tournament</h3>
+            </div>
+
+            <p style={{ color: '#cdd6e2', fontSize: '14px', lineHeight: 1.5, marginBottom: '16px' }}>
+              Are you sure you want to permanently delete <strong>"{tournament?.name}"</strong>?
+            </p>
+
+            <div
+              style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '8px',
+                padding: '14px',
+                fontSize: '13px',
+                color: '#fca5a5',
+                lineHeight: 1.5,
+                marginBottom: '20px',
+              }}
+            >
+              <strong>Warning:</strong> This will permanently delete all {rounds.length} rounds, competition groups, scheduled matches, and team registrations. This action cannot be reversed.
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                className="button ghost-button"
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="button danger-button"
+                type="button"
+                onClick={handleDeleteTournament}
+                disabled={actionLoading}
+                style={{ minWidth: '140px' }}
+              >
+                {actionLoading ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

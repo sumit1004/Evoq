@@ -1,4 +1,9 @@
 function write(level, event, details = {}) {
+  const logLevel = (process.env.LOG_LEVEL || 'info').toLowerCase();
+  if (logLevel === 'error' && level !== 'error') return;
+  if (logLevel === 'warn' && level !== 'error' && level !== 'warn') return;
+  if (logLevel === 'silent' || logLevel === 'none') return;
+
   const payload = {
     level,
     event,

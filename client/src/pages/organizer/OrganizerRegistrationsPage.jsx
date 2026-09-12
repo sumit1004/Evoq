@@ -13,6 +13,41 @@ import {
   fetchTournament
 } from '../../services/tournamentApi.js';
 
+function AuthenticatedEvidenceImage({ registrationId, alt, style, onClick }) {
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let url = null;
+    if (!registrationId) return;
+
+    downloadPaymentEvidence(registrationId)
+      .then((blob) => {
+        if (!active) return;
+        url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError(true);
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [registrationId]);
+
+  if (loading) return <span style={{ color: '#91a0b3', fontSize: '12px' }}>Loading payment receipt...</span>;
+  if (error || !blobUrl) return <span style={{ color: '#ff6b6b', fontSize: '12px' }}>Unable to preview receipt.</span>;
+
+  return <img src={blobUrl} alt={alt || 'Payment receipt'} style={style} onClick={onClick} />;
+}
+
 export function OrganizerRegistrationsPage() {
   const { tournamentId } = useParams();
   const { identity } = useAuth();
@@ -825,16 +860,12 @@ export function OrganizerRegistrationsPage() {
                 {selectedReg.paymentScreenshotPath ? (
                   <div style={{ marginTop: '10px' }}>
                     <span style={{ display: 'block', fontSize: '14px', marginBottom: '5px', fontWeight: 'bold' }}>Receipt Screenshot:</span>
-                    <button 
+                    <AuthenticatedEvidenceImage
+                      registrationId={selectedReg.id}
+                      alt="Evidence receipt"
+                      style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', maxHeight: '150px', cursor: 'pointer' }}
                       onClick={() => handleOpenLightbox(selectedReg.id)}
-                      style={{ border: 'none', padding: 0, background: 'none', cursor: 'pointer', display: 'block' }}
-                    >
-                      <img 
-                        src={`${import.meta.env.VITE_API_BASE_URL || '/api'}/registrations/${selectedReg.id}/payment-evidence`}
-                        alt="Evidence receipt"
-                        style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', maxHeight: '150px' }}
-                      />
-                    </button>
+                    />
                     <span style={{ fontSize: '12px', color: '#91a0b3', marginTop: '5px', display: 'block' }}>Click image to zoom securely</span>
                   </div>
                 ) : (

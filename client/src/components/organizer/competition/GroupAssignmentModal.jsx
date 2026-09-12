@@ -111,8 +111,8 @@ export function GroupAssignmentModal({
             </div>
 
             {totalEligible === 0 ? (
-              <div className="comp-alert comp-alert-warning">
-                No eligible verified teams found. Please verify team registrations before creating groups.
+              <div className="comp-alert comp-alert-warning" style={{ lineHeight: 1.5 }}>
+                <strong>No verified teams found:</strong> In EVOQ, team registrations must be reviewed and marked as <strong>VERIFIED</strong> in the tournament Registrations console before groups can be generated for Round 1.
               </div>
             ) : (
               <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '10px' }}>

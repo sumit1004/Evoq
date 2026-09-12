@@ -358,13 +358,13 @@ export async function createMatch(groupId, input) {
     [
       groupId,
       input.matchNumber,
-      input.name.trim(),
+      (input.name || `Match ${input.matchNumber || 1}`).trim(),
       input.status || 'SCHEDULED',
       input.roomId || null,
       input.roomPassword || null,
-      input.scheduledAt || null,
-      input.checkInAt || null,
-      input.lobbyOpenAt || null,
+      input.scheduledAt ? new Date(input.scheduledAt) : null,
+      input.checkInAt ? new Date(input.checkInAt) : null,
+      input.lobbyOpenAt ? new Date(input.lobbyOpenAt) : null,
       input.instructions || null,
     ]
   );
@@ -388,7 +388,13 @@ export async function updateMatch(matchId, input) {
   for (const [key, column] of Object.entries(allowed)) {
     if (input[key] !== undefined) {
       columns.push(`${column} = ?`);
-      values.push(key === 'name' && typeof input[key] === 'string' ? input[key].trim() : input[key]);
+      if (['scheduledAt', 'checkInAt', 'lobbyOpenAt'].includes(key)) {
+        values.push(input[key] ? new Date(input[key]) : null);
+      } else if (key === 'name' && typeof input[key] === 'string') {
+        values.push(input[key].trim());
+      } else {
+        values.push(input[key] ?? null);
+      }
     }
   }
   if (columns.length) {

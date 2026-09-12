@@ -14,6 +14,13 @@ vi.mock('../repositories/registrationRepository.js', () => ({
   insertRegistrationMemberSnapshots: vi.fn(),
 }));
 vi.mock('../repositories/tournamentRepository.js', () => ({ findTournament: vi.fn(), findTournamentForUpdate: vi.fn() }));
+vi.mock('../repositories/paymentRepository.js', () => ({
+  findPaymentByRegistrationId: vi.fn(),
+  findPaymentByTxRef: vi.fn(),
+  updatePayment: vi.fn(),
+  insertAuditLog: vi.fn(),
+  insertPayment: vi.fn(),
+}));
 
 const repository = await import('../repositories/registrationRepository.js');
 const tournamentRepository = await import('../repositories/tournamentRepository.js');
@@ -56,6 +63,12 @@ describe('registration service', () => {
     repository.findRegistration.mockResolvedValue([{ id: 3, tournament_id: 5, team_id: 7, status: 'PENDING', entry_type: 'FREE', organizer_id: 4, team_name: 'Alpha', tournament_name: 'Cup', member_id: 4, member_name: 'Owner', member_email: 'owner@example.com', unique_player_id: 'EVQ-1' }]);
     await expect(reviewTournamentRegistration(3, { status: 'VERIFIED' }, 9))
       .rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('rejects registration review on a COMPLETED tournament for the organizer owner', async () => {
+    repository.findRegistration.mockResolvedValue([{ id: 3, tournament_id: 5, tournament_status: 'COMPLETED', team_id: 7, status: 'PENDING', entry_type: 'FREE', organizer_id: 4, team_name: 'Alpha', tournament_name: 'Cup', member_id: 4, member_name: 'Owner', member_email: 'owner@example.com', unique_player_id: 'EVQ-1' }]);
+    await expect(reviewTournamentRegistration(3, { status: 'VERIFIED' }, 4))
+      .rejects.toMatchObject({ code: 'CONFLICT', message: 'Completed tournaments are read-only' });
   });
 
   it('paginates complete registrations without splitting member rows', async () => {

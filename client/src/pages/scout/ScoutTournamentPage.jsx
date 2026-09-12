@@ -10,7 +10,7 @@ import { useSocket } from '../../context/SocketContext.jsx';
 export function ScoutTournamentPage() {
   const { tournamentId } = useParams();
   const { identity, loading: authLoading } = useAuth();
-  const { socket } = useSocket();
+  const { on, joinTournament, leaveTournament } = useSocket();
   const navigate = useNavigate();
 
   const [workspace, setWorkspace] = useState(null);
@@ -89,29 +89,29 @@ export function ScoutTournamentPage() {
 
   // Realtime Socket listener
   useEffect(() => {
-    if (!socket || !tournamentId) return;
-    socket.emit('join_tournament', Number(tournamentId));
+    if (!tournamentId) return;
+    joinTournament?.(tournamentId);
 
     const handleAccessRevoked = (data) => {
-      if (Number(data.tournamentId) === Number(tournamentId)) {
+      if (Number(data?.tournamentId) === Number(tournamentId)) {
         setError('Your scout access has been revoked by the organizer.');
       }
     };
     const handleAccessUpdated = (data) => {
-      if (Number(data.tournamentId) === Number(tournamentId)) {
+      if (Number(data?.tournamentId) === Number(tournamentId)) {
         loadWorkspace();
       }
     };
 
-    socket.on('staff_access_revoked', handleAccessRevoked);
-    socket.on('staff_access_updated', handleAccessUpdated);
+    const offRevoked = on?.('staff_access_revoked', handleAccessRevoked);
+    const offUpdated = on?.('staff_access_updated', handleAccessUpdated);
 
     return () => {
-      socket.emit('leave_tournament', Number(tournamentId));
-      socket.off('staff_access_revoked', handleAccessRevoked);
-      socket.off('staff_access_updated', handleAccessUpdated);
+      leaveTournament?.(tournamentId);
+      offRevoked?.();
+      offUpdated?.();
     };
-  }, [socket, tournamentId]);
+  }, [tournamentId, joinTournament, leaveTournament, on]);
 
   // Load matches when selected group changes
   useEffect(() => {

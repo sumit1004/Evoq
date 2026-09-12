@@ -7,6 +7,10 @@ vi.mock('../repositories/tournamentRepository.js', () => ({
   listTournaments: vi.fn(),
   updateTournament: vi.fn(),
 }));
+vi.mock('../repositories/staffRepository.js', () => ({
+  ensureDefaultOrganization: vi.fn().mockResolvedValue({ id: 1, name: 'Default Org' }),
+  getScoutPermissionsAndGroups: vi.fn().mockResolvedValue(null),
+}));
 
 const repository = await import('../repositories/tournamentRepository.js');
 const { createOrganizerTournament, updateOrganizerTournament } = await import('./tournamentService.js');

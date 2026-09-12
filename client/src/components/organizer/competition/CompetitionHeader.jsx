@@ -14,6 +14,7 @@ export function CompetitionHeader({
   permissions = new Set(),
   isReadOnly = false,
   onOpenCompleteModal,
+  onOpenDeleteModal,
   error = '',
   notice = '',
   onClearNotice,
@@ -79,6 +80,16 @@ export function CompetitionHeader({
               style={{ fontSize: '13px', minHeight: '36px', padding: '0 14px', color: '#f6c453', borderColor: 'rgba(246, 196, 83, 0.4)' }}
             >
               Complete Tournament
+            </button>
+          )}
+          {!isScout && onOpenDeleteModal && (
+            <button
+              type="button"
+              className="button ghost-button danger-text"
+              onClick={onOpenDeleteModal}
+              style={{ fontSize: '13px', minHeight: '36px', padding: '0 14px', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+            >
+              Delete Tournament
             </button>
           )}
         </div>

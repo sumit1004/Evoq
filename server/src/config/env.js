@@ -3,7 +3,14 @@ import path from 'node:path';
 
 dotenv.config();
 
-const requiredInProduction = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_NAME', 'CLIENT_ORIGIN'];
+const requiredInProduction = [
+  'JWT_SECRET',
+  'DB_HOST',
+  'DB_USER',
+  'DB_NAME',
+  'CLIENT_ORIGIN',
+  'APP_URL',
+];
 
 function getNumber(name, fallback) {
   const value = process.env[name];
@@ -40,17 +47,15 @@ export const config = {
   appUrl: process.env.APP_URL || process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'development-only-secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
-  resendApiKey: process.env.RESEND_API_KEY || '',
-  emailFrom: process.env.EMAIL_FROM || 'EVOQ Gaming <onboarding@resend.dev>',
   uploadDirectory: path.resolve(process.env.UPLOAD_DIRECTORY || 'uploads'),
   db: {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.TEST_DB_HOST || process.env.DB_HOST || 'localhost',
     port: getNumber('DB_PORT', 3306),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'evoq',
+    user: process.env.TEST_DB_USER || process.env.DB_USER || 'evoq',
+    password: process.env.TEST_DB_PASSWORD || process.env.DB_PASSWORD || '',
+    database: process.env.TEST_DB_NAME 
+      || (process.env.NODE_ENV === 'test' ? 'evoq_test' : (process.env.DB_NAME || 'evoq')),
     connectionLimit: getNumber('DB_CONNECTION_LIMIT', 10),
     connectTimeout: getNumber('DB_CONNECT_TIMEOUT', 10000),
   },
 };
-

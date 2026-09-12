@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 import { errorResponses } from '../errors/AppError.js';
 import { logger } from '../utils/logger.js';
+import { getUserTokenVersion } from '../services/identityService.js';
 
 function getBearerToken(header) {
   if (typeof header !== 'string') {
@@ -12,7 +13,7 @@ function getBearerToken(header) {
   return scheme?.toLowerCase() === 'bearer' && token ? token : null;
 }
 
-export function authenticateRequest(req, _res, next) {
+export async function authenticateRequest(req, _res, next) {
   const token = getBearerToken(req.headers.authorization);
   if (!token) {
     logger.error('authentication_failed', { method: req.method, path: req.originalUrl, reason: 'missing_token' });
@@ -23,6 +24,14 @@ export function authenticateRequest(req, _res, next) {
     const payload = jwt.verify(token, config.jwtSecret);
     const userId = Number(payload.sub);
     if (!Number.isSafeInteger(userId) || userId <= 0 || !['PLAYER', 'ORGANIZER', 'ADMIN'].includes(payload.role)) {
+      return next(errorResponses.invalidToken());
+    }
+
+    // Enforce tokenVersion revocation on password reset
+    const currentVersion = await getUserTokenVersion(userId);
+    const tokenVersion = Number(payload.tokenVersion) || 1;
+    if (currentVersion !== null && tokenVersion !== currentVersion) {
+      logger.error('authentication_failed', { method: req.method, path: req.originalUrl, reason: 'revoked_token' });
       return next(errorResponses.invalidToken());
     }
 
@@ -37,7 +46,7 @@ export function authenticateRequest(req, _res, next) {
   }
 }
 
-export function optionalAuthentication(req, _res, next) {
+export async function optionalAuthentication(req, _res, next) {
   const token = getBearerToken(req.headers.authorization);
   if (!token) {
     return next();
@@ -47,7 +56,11 @@ export function optionalAuthentication(req, _res, next) {
     const payload = jwt.verify(token, config.jwtSecret);
     const userId = Number(payload.sub);
     if (Number.isSafeInteger(userId) && userId > 0 && ['PLAYER', 'ORGANIZER', 'ADMIN'].includes(payload.role)) {
-      req.user = { id: userId, role: payload.role };
+      const currentVersion = await getUserTokenVersion(userId);
+      const tokenVersion = Number(payload.tokenVersion) || 1;
+      if (currentVersion === null || tokenVersion === currentVersion) {
+        req.user = { id: userId, role: payload.role };
+      }
     }
   } catch {
     // Optional authentication treats an invalid token as anonymous.
@@ -55,3 +68,4 @@ export function optionalAuthentication(req, _res, next) {
 
   return next();
 }
+

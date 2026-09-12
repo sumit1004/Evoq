@@ -47,6 +47,7 @@ import {
   deleteTournamentRound,
   lockRoundAssignment,
   notifyMatchSchedule,
+  removeAssignedTeam,
   updateRoundStatus,
   updateRoundGroup,
   updateGroupMatch,
@@ -88,6 +89,53 @@ describe('competition service lifecycle and ownership', () => {
     repository.getGroupContext.mockResolvedValue({ id: 7, organizer_id: 8, status: 'NOT_STARTED', tournament_status: 'LIVE' });
     repository.assignTeam.mockRejectedValue(Object.assign(new Error('This group has reached its maximum capacity'), { code: 'GROUP_CAPACITY' }));
     await expect(assignVerifiedTeam(7, 4, 8)).rejects.toMatchObject({ status: 409, message: 'This group has reached its maximum capacity' });
+  });
+
+  it('rejects owner mutations on a COMPLETED tournament', async () => {
+    // 1. Create round on COMPLETED tournament
+    repository.getTournamentContext.mockResolvedValue({ id: 2, organizer_id: 8, status: 'COMPLETED' });
+    await expect(createTournamentRound(2, { roundNumber: 1, name: 'Round 1' }, 8)).rejects.toMatchObject({
+      status: 409,
+      message: 'Completed tournaments are read-only',
+    });
+
+    // 2. Update group on COMPLETED tournament
+    repository.getGroupContext.mockResolvedValue({ id: 7, organizer_id: 8, status: 'NOT_STARTED', tournament_status: 'COMPLETED' });
+    await expect(updateRoundGroup(7, { name: 'New Name' }, 8)).rejects.toMatchObject({
+      status: 409,
+      message: 'Completed tournaments are read-only',
+    });
+
+    // 3. Assign team on COMPLETED tournament
+    await expect(assignVerifiedTeam(7, 4, 8)).rejects.toMatchObject({
+      status: 409,
+      message: 'Completed tournaments are read-only',
+    });
+
+    // 4. Remove team on COMPLETED tournament
+    await expect(removeAssignedTeam(7, 4, 8)).rejects.toMatchObject({
+      status: 409,
+      message: 'Completed tournaments are read-only',
+    });
+
+    // 5. Update match on COMPLETED tournament
+    repository.getMatchContext.mockResolvedValue({ id: 10, organizer_id: 8, group_id: 7, status: 'SCHEDULED', tournament_status: 'COMPLETED' });
+    await expect(updateGroupMatch(10, { name: 'New Match' }, 8)).rejects.toMatchObject({
+      status: 409,
+      message: 'Completed tournaments are read-only',
+    });
+
+    // 6. Delete group match on COMPLETED tournament
+    await expect(deleteGroupMatch(10, 8)).rejects.toMatchObject({
+      status: 409,
+      message: 'Completed tournaments are read-only',
+    });
+
+    // 7. Delete round group on COMPLETED tournament
+    await expect(deleteRoundGroup(7, 8)).rejects.toMatchObject({
+      status: 409,
+      message: 'Completed tournaments are read-only',
+    });
   });
 });
 

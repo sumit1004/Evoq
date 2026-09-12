@@ -26,6 +26,7 @@ vi.mock('../repositories/archiveRepository.js', () => ({
   countIncompleteMatches: vi.fn(),
   getFinalLeaderboard: vi.fn(),
   getQualifications: vi.fn(),
+  getTournamentAnnouncements: vi.fn(),
   getResultMediaPaths: vi.fn(),
   getRegistrationCount: vi.fn(),
   insertArchive: vi.fn(),
@@ -121,5 +122,67 @@ describe('archive history access', () => {
     });
     expect(mockConn.rollback).toHaveBeenCalled();
     expect(mockConn.release).toHaveBeenCalled();
+  });
+
+  it('preserves announcements and snapshot summary during tournament completion', async () => {
+    const mockConn = {
+      beginTransaction: vi.fn(),
+      commit: vi.fn(),
+      rollback: vi.fn(),
+      release: vi.fn(),
+    };
+    mockPool.getConnection.mockResolvedValue(mockConn);
+
+    repository.getTournamentForCompletion.mockResolvedValue({
+      id: 8,
+      organizer_id: 3,
+      name: 'Pro League',
+      status: 'LIVE',
+    });
+    repository.getFinalRound.mockResolvedValue({
+      id: 20,
+      name: 'Grand Finals',
+      status: 'COMPLETED',
+    });
+    repository.countIncompleteGroups.mockResolvedValue(0);
+    repository.countIncompleteMatches.mockResolvedValue(0);
+    repository.getFinalLeaderboard.mockResolvedValue([
+      { rank: 1, teamId: 101, teamName: 'Warriors', points: 50, kills: 20, matchesPlayed: 3 },
+    ]);
+    repository.getQualifications.mockResolvedValue([]);
+    repository.getTournamentAnnouncements.mockResolvedValue([
+      { id: 1, message: 'Finals starting at 6 PM', createdBy: 3, creatorName: 'Organizer', createdAt: '2026-09-01T12:00:00Z' },
+    ]);
+    repository.getResultMediaPaths.mockResolvedValue([]);
+    repository.getRegistrationCount.mockResolvedValue(16);
+    repository.insertArchive.mockResolvedValue(42);
+    repository.findArchive.mockResolvedValue({
+      id: 42,
+      tournament_id: 8,
+      organizer_id: 3,
+      tournament_name: 'Pro League',
+      completed_at: '2026-09-01T18:00:00Z',
+      registration_count: 16,
+      final_leaderboard_json: JSON.stringify([{ rank: 1, teamName: 'Warriors' }]),
+      qualified_teams_json: '[]',
+      winners_json: '[]',
+      summary_json: JSON.stringify({
+        announcements: [{ id: 1, message: 'Finals starting at 6 PM' }],
+      }),
+    });
+
+    const res = await completeTournament(8, 3);
+    expect(repository.insertArchive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        summary: expect.objectContaining({
+          announcements: expect.arrayContaining([
+            expect.objectContaining({ message: 'Finals starting at 6 PM' }),
+          ]),
+        }),
+      }),
+      mockConn,
+    );
+    expect(repository.markCompletedAndCleanup).toHaveBeenCalledWith(8, mockConn);
+    expect(res.id).toBe(42);
   });
 });

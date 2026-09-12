@@ -12,6 +12,10 @@ const matchTransitions = { SCHEDULED: ['LIVE', 'COMPLETED'], LIVE: ['COMPLETED']
 
 async function assertAccess(context, userId, { permission = null, isWrite = false, groupId = null } = {}) {
   if (!context) throw errorResponses.notFound('Competition resource not found');
+  const tournamentStatus = context.tournament_status || context.status;
+  if (isWrite && tournamentStatus === 'COMPLETED') {
+    throw errorResponses.conflict('Completed tournaments are read-only');
+  }
   if (context.organizer_id === userId) {
     return { isOwner: true, isStaff: true, permissions: new Set(Object.values(PERMISSIONS)) };
   }
@@ -426,6 +430,7 @@ export async function assignVerifiedTeam(groupId, teamId, userId) {
 export async function removeAssignedTeam(groupId, teamId, userId) {
   const context = await repository.getGroupContext(groupId);
   await assertAccess(context, userId, { permission: PERMISSIONS.REMOVE_TEAMS, isWrite: true, groupId });
+  liveTournament(context);
   if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only');
   try {
     const res = await repository.removeTeam(groupId, teamId);
@@ -647,10 +652,18 @@ export async function getMatch(matchId, userId) {
 
 export async function createGroupMatch(groupId, input, userId) {
   const context = await repository.getGroupContext(groupId);
+  if (!context) throw errorResponses.notFound('Group not found');
   await assertAccess(context, userId, { permission: PERMISSIONS.CREATE_MATCH, isWrite: true, groupId });
   liveTournament(context);
   if (context.status === 'COMPLETED') throw errorResponses.conflict('Completed groups are read-only');
-  const match = await repository.createMatch(groupId, input);
+  const existingMatches = await repository.listMatches(groupId);
+  const matchNumber = Number(input.matchNumber) || (existingMatches.length + 1);
+  const name = (input.name || `Match ${matchNumber}`).trim();
+  const match = await repository.createMatch(groupId, {
+    ...input,
+    matchNumber,
+    name,
+  });
   await staffRepo.insertAuditLog({
     tournamentId: context.tournament_id,
     groupId: Number(groupId),
@@ -659,7 +672,7 @@ export async function createGroupMatch(groupId, input, userId) {
     action: 'MATCH_CREATED',
     entityType: 'MATCH',
     entityId: match.id,
-    metadata: { groupId, matchNumber: input.matchNumber, name: input.name },
+    metadata: { groupId, matchNumber, name },
   });
   emitRealtime(realtimeRooms.group(groupId), 'match_created', serializeMatch(match));
   return serializeMatch(match);

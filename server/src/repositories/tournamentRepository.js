@@ -77,7 +77,9 @@ export async function listTournaments({ organizerId, viewerId, search, status, e
   }
 
   // Pagination offset
-  const offset = (page - 1) * limit;
+  const safePage = Number.isInteger(Number(page)) && Number(page) > 0 ? Number(page) : 1;
+  const safeLimit = Number.isInteger(Number(limit)) && Number(limit) > 0 && Number(limit) <= 100 ? Number(limit) : 12;
+  const offset = (safePage - 1) * safeLimit;
   const listQuery = `
     SELECT ${selectFields}
     FROM tournaments t
@@ -88,7 +90,7 @@ export async function listTournaments({ organizerId, viewerId, search, status, e
     LIMIT ? OFFSET ?
   `;
 
-  const [rows] = await pool.query(listQuery, [...params, Number(limit), Number(offset)]);
+  const [rows] = await pool.query(listQuery, [...params, safeLimit, offset]);
   return { rows, total };
 }
 
@@ -102,15 +104,16 @@ export async function createTournament(input) {
   try {
     await connection.beginTransaction();
     const [result] = await connection.query(
-      `INSERT INTO tournaments (organizer_id, name, description, tournament_date, registration_start_at, registration_end_at, max_teams, players_per_team, entry_type, entry_fee, payment_qr_path, payment_instructions, payment_method, upi_id, payment_account_id, game)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tournaments (organizer_id, organization_id, name, description, tournament_date, registration_start_at, registration_end_at, max_teams, players_per_team, entry_type, entry_fee, payment_qr_path, payment_instructions, payment_method, upi_id, payment_account_id, game)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.organizerId,
+        input.organizationId || null,
         input.name,
         input.description || null,
-        input.tournamentDate || null,
-        input.registrationStartAt,
-        input.registrationEndAt,
+        input.tournamentDate ? new Date(input.tournamentDate) : null,
+        new Date(input.registrationStartAt),
+        new Date(input.registrationEndAt),
         input.maxTeams,
         input.playersPerTeam,
         input.entryType,
